@@ -1,0 +1,490 @@
+/* ==========================================================================
+   CASCADE 2 — Industrial HMI design system (vanilla CSS)
+   ========================================================================== */
+
+:root {
+  /* Surfaces */
+  --hmi-bg: #070a0f;
+  --hmi-bg-2: #0b1018;
+  --hmi-panel: rgba(20, 28, 40, 0.55);
+  --hmi-panel-2: rgba(28, 38, 54, 0.45);
+  --hmi-tile: rgba(11, 16, 24, 0.66);
+  --hmi-line: rgba(140, 170, 210, 0.14);
+  --hmi-line-strong: rgba(140, 170, 210, 0.28);
+
+  /* Text */
+  --hmi-text: #e8eef7;
+  --hmi-text-dim: #93a3b8;
+  --hmi-text-faint: #61708a;
+
+  /* HMI status colors */
+  --hmi-run: #21f37a;
+  --hmi-run-glow: rgba(33, 243, 122, 0.35);
+  --hmi-fault: #ff3b46;
+  --hmi-fault-glow: rgba(255, 59, 70, 0.35);
+  --hmi-warn: #ffbe１8;
+  --hmi-warn: #ffbe18;
+  --hmi-warn-glow: rgba(255, 190, 24, 0.32);
+
+  /* Batch types */
+  --hmi-soft: #37b6ff;
+  --hmi-hard: #ff8a2b;
+
+  /* Data series */
+  --hmi-c1: #37b6ff;
+  --hmi-c2: #b48cff;
+  --hmi-c3: #21f37a;
+  --hmi-c4: #ffbe18;
+  --hmi-c5: #ff5c8a;
+
+  --hmi-radius: 14px;
+  --hmi-gap: clamp(6px, 0.62vw, 12px);
+  --hmi-pad: clamp(8px, 0.75vw, 16px);
+
+  --hmi-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --hmi-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* ---------- Shell: strictly one screen, no scroll ---------- */
+.hmi-root {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 700px at 12% -10%, rgba(55, 182, 255, 0.12), transparent 60%),
+    radial-gradient(900px 600px at 95% 110%, rgba(180, 140, 255, 0.1), transparent 60%),
+    linear-gradient(160deg, var(--hmi-bg-2), var(--hmi-bg));
+  color: var(--hmi-text);
+  font-family: var(--hmi-font);
+  -webkit-font-smoothing: antialiased;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-template-areas:
+    "head head head"
+    "mixer transport pre"
+    "final final bsm";
+  gap: var(--hmi-gap);
+  padding: var(--hmi-gap);
+}
+
+.hmi-area-head { grid-area: head; }
+.hmi-area-mixer { grid-area: mixer; }
+.hmi-area-transport { grid-area: transport; }
+.hmi-area-pre { grid-area: pre; }
+.hmi-area-final { grid-area: final; }
+.hmi-area-bsm { grid-area: bsm; }
+
+/* ---------- Glass panel ---------- */
+.hmi-panel {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--hmi-gap) * 0.75);
+  padding: var(--hmi-pad);
+  border-radius: var(--hmi-radius);
+  background: linear-gradient(165deg, var(--hmi-panel), var(--hmi-panel-2));
+  border: 1px solid var(--hmi-line);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  box-shadow:
+    0 18px 40px -24px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.hmi-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+}
+
+.hmi-panel-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.hmi-panel-title {
+  margin: 0;
+  font-size: clamp(10px, 0.82vw, 13px);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hmi-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hmi-panel-sub {
+  font-size: clamp(9px, 0.66vw, 11px);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hmi-text-faint);
+  white-space: nowrap;
+}
+
+.hmi-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--hmi-gap) * 0.75);
+}
+
+.hmi-chart {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+/* ---------- Header bar ---------- */
+.hmi-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--hmi-gap);
+  padding: calc(var(--hmi-pad) * 0.7) var(--hmi-pad);
+  border-radius: var(--hmi-radius);
+  background: linear-gradient(100deg, rgba(24, 34, 50, 0.7), rgba(14, 20, 30, 0.5));
+  border: 1px solid var(--hmi-line);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+}
+
+.hmi-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+.hmi-mark {
+  width: clamp(30px, 2.4vw, 40px);
+  aspect-ratio: 1;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: linear-gradient(140deg, rgba(33, 243, 122, 0.22), rgba(55, 182, 255, 0.18));
+  border: 1px solid var(--hmi-line-strong);
+  font-family: var(--hmi-mono);
+  font-weight: 700;
+  font-size: clamp(11px, 0.9vw, 15px);
+  color: var(--hmi-run);
+}
+
+.hmi-title {
+  margin: 0;
+  font-size: clamp(14px, 1.45vw, 24px);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hmi-subtitle {
+  font-size: clamp(9px, 0.68vw, 11px);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--hmi-text-faint);
+}
+
+.hmi-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--hmi-gap);
+  flex: none;
+}
+
+.hmi-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+}
+
+.hmi-meta-label {
+  font-size: clamp(8px, 0.6vw, 10px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--hmi-text-faint);
+}
+
+.hmi-meta-value {
+  font-family: var(--hmi-mono);
+  font-size: clamp(12px, 1.05vw, 18px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Status pill / dot ---------- */
+.hmi-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: clamp(9px, 0.72vw, 12px);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+  background: color-mix(in oklab, currentColor 14%, transparent);
+}
+
+.hmi-pill.is-run { color: var(--hmi-run); }
+.hmi-pill.is-fault { color: var(--hmi-fault); }
+.hmi-pill.is-warn { color: var(--hmi-warn); }
+.hmi-pill.is-idle { color: var(--hmi-text-dim); }
+
+.hmi-dot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 12px currentColor;
+  animation: hmi-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes hmi-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.82); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hmi-dot { animation: none; }
+}
+
+/* ---------- KPI tiles ---------- */
+.hmi-tiles {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: calc(var(--hmi-gap) * 0.75);
+  min-height: 0;
+}
+
+.hmi-tile {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: clamp(8px, 0.7vw, 14px);
+  border-radius: 12px;
+  background: var(--hmi-tile);
+  border: 1px solid var(--hmi-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.hmi-tile-label {
+  font-size: clamp(8px, 0.62vw, 10px);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--hmi-text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hmi-tile-value {
+  font-family: var(--hmi-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(16px, 1.75vw, 30px);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.hmi-tile-unit {
+  font-size: 0.5em;
+  font-weight: 600;
+  color: var(--hmi-text-dim);
+  margin-left: 4px;
+}
+
+.hmi-tile.is-run .hmi-tile-value { color: var(--hmi-run); }
+.hmi-tile.is-fault .hmi-tile-value { color: var(--hmi-fault); }
+.hmi-tile.is-warn .hmi-tile-value { color: var(--hmi-warn); }
+.hmi-tile.is-soft .hmi-tile-value { color: var(--hmi-soft); }
+.hmi-tile.is-hard .hmi-tile-value { color: var(--hmi-hard); }
+
+/* Big hero KPI (batch count) */
+.hmi-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--hmi-gap);
+  padding: clamp(8px, 0.8vw, 16px);
+  border-radius: 12px;
+  background: var(--hmi-tile);
+  border: 1px solid var(--hmi-line);
+}
+
+.hmi-hero-value {
+  font-family: var(--hmi-mono);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(30px, 4vw, 64px);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  text-shadow: 0 0 34px rgba(55, 182, 255, 0.25);
+}
+
+.hmi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: clamp(12px, 1.1vw, 20px);
+  letter-spacing: 0.14em;
+  border: 1px solid currentColor;
+  background: color-mix(in oklab, currentColor 16%, transparent);
+}
+
+.hmi-badge.is-soft { color: var(--hmi-soft); }
+.hmi-badge.is-hard { color: var(--hmi-hard); }
+
+/* ---------- Final plodder split ---------- */
+.hmi-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(150px, 15vw, 240px);
+  gap: var(--hmi-gap);
+}
+
+.hmi-side {
+  min-width: 0;
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: calc(var(--hmi-gap) * 0.75);
+}
+
+/* ---------- BSM lanes ---------- */
+.hmi-lanes {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: calc(var(--hmi-gap) * 0.75);
+}
+
+.hmi-lane {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 0 clamp(10px, 0.9vw, 16px);
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, currentColor 45%, transparent);
+  background: linear-gradient(
+    100deg,
+    color-mix(in oklab, currentColor 18%, transparent),
+    color-mix(in oklab, currentColor 6%, transparent)
+  );
+}
+
+.hmi-lane.is-run { color: var(--hmi-run); }
+.hmi-lane.is-fault { color: var(--hmi-fault); }
+.hmi-lane.is-warn { color: var(--hmi-warn); }
+
+.hmi-lane-name {
+  font-family: var(--hmi-mono);
+  font-weight: 700;
+  font-size: clamp(11px, 0.95vw, 16px);
+  color: var(--hmi-text);
+}
+
+.hmi-lane-state {
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  font-size: clamp(11px, 1.05vw, 18px);
+  text-align: right;
+}
+
+.hmi-lane-count {
+  font-family: var(--hmi-mono);
+  font-size: clamp(9px, 0.7vw, 12px);
+  color: var(--hmi-text-dim);
+  text-align: right;
+}
+
+/* ---------- Legend ---------- */
+.hmi-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: clamp(8px, 0.64vw, 11px);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hmi-text-dim);
+}
+
+.hmi-legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+.hmi-swatch { width: 10px; height: 3px; border-radius: 2px; background: currentColor; }
+
+/* ---------- Tooltip ---------- */
+.hmi-tooltip {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(8, 12, 18, 0.92);
+  border: 1px solid var(--hmi-line-strong);
+  font-family: var(--hmi-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--hmi-text);
+  box-shadow: 0 12px 30px -16px #000;
+}
+
+.hmi-tooltip-label {
+  color: var(--hmi-text-faint);
+  letter-spacing: 0.1em;
+  margin-bottom: 2px;
+}
+
+/* ---------- Responsive re-flow (still no scroll) ---------- */
+@media (max-width: 1100px) {
+  .hmi-root {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "head head"
+      "mixer transport"
+      "pre pre"
+      "final bsm";
+  }
+  .hmi-split { grid-template-columns: minmax(0, 1fr) clamp(120px, 22vw, 200px); }
+}
+
+@media (max-width: 720px) {
+  .hmi-root {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto repeat(5, minmax(0, 1fr));
+    grid-template-areas:
+      "head"
+      "mixer"
+      "transport"
+      "pre"
+      "final"
+      "bsm";
+  }
+  .hmi-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .hmi-side { grid-auto-flow: column; grid-auto-rows: auto; }
+  .hmi-header-right .hmi-meta { display: none; }
+}
