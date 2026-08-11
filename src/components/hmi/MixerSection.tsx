@@ -13,9 +13,29 @@ import { usePolledJson } from "@/lib/usePolledJson";
 
 type MixerStatus = { batchCount: number | null; running: boolean };
 
-export function MixerSection({ batchType }: { batchType: "SOFT" | "HARD" }) {
+type BatchType = "SOFT" | "HARD" | "ANOMALY";
+type BatchTypeStatus = {
+  modelReady: boolean;
+  batchType: BatchType | null;
+  hardness: number | null;
+  batchEndedAt: string | null;
+};
+
+export function MixerSection() {
   const data = usePolledJson<Point[]>("/api/mixer/recent?minutes=10", 10_000, []);
-  const status = usePolledJson<MixerStatus>("/api/mixer/status", 10_000, { batchCount: null, running: false });
+  const status = usePolledJson<MixerStatus>("/api/mixer/status", 10_000, {
+    batchCount: null,
+    running: false,
+  });
+  const batch = usePolledJson<BatchTypeStatus>("/api/mixer/batch-type", 10_000, {
+    modelReady: true,
+    batchType: null,
+    hardness: null,
+    batchEndedAt: null,
+  });
+
+  const badgeLabel = !batch.modelReady ? "No model" : (batch.batchType ?? "—");
+  const badgeTone = batch.batchType ? batch.batchType.toLowerCase() : "pending";
 
   return (
     <Panel
@@ -31,9 +51,9 @@ export function MixerSection({ batchType }: { batchType: "SOFT" | "HARD" }) {
             {status.batchCount != null ? status.batchCount : "—"}
           </div>
         </div>
-        <div className={`hmi-badge is-${batchType.toLowerCase()}`}>
+        <div className={`hmi-badge is-${badgeTone}`} title="Hardness of the last completed batch">
           <span className="hmi-dot" />
-          {batchType}
+          {badgeLabel}
         </div>
       </div>
 

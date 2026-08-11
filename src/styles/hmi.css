@@ -198,14 +198,14 @@
 .hmi-header-right {
   display: flex;
   align-items: center;
-  gap: var(--hmi-gap);
+  gap: 15px;
   flex: none;
 }
 
 .hmi-meta {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   line-height: 1.15;
 }
 
@@ -213,7 +213,7 @@
   font-size: clamp(8px, 0.6vw, 10px);
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--hmi-text-faint);
+  color: var(--hmi-text);
 }
 
 .hmi-meta-value {
@@ -357,6 +357,8 @@
 
 .hmi-badge.is-soft { color: var(--hmi-soft); }
 .hmi-badge.is-hard { color: var(--hmi-hard); }
+.hmi-badge.is-anomaly { color: var(--hmi-fault); }
+.hmi-badge.is-pending { color: var(--hmi-text-dim); }
 
 /* ---------- Final plodder split ---------- */
 .hmi-split {

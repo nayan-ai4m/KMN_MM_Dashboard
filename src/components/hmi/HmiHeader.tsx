@@ -3,12 +3,23 @@ import { StatusPill, type Tone } from "./primitives";
 import type { LaneRow } from "./BsmSection";
 import { usePolledJson } from "@/lib/usePolledJson";
 
+function shiftForHour(hour: number): "A" | "B" | "C" {
+  if (hour >= 7 && hour < 15) return "A";
+  if (hour >= 15 && hour < 23) return "B";
+  return "C";
+}
+
 export function HmiHeader() {
   const [time, setTime] = useState("--:--:--");
+  const [shift, setShift] = useState<"A" | "B" | "C">(() => shiftForHour(new Date().getHours()));
   const lanes = usePolledJson<LaneRow[]>("/api/bsm/lanes", 10_000, []);
 
   useEffect(() => {
-    const update = () => setTime(new Date().toLocaleTimeString([], { hour12: false }));
+    const update = () => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString([], { hour12: false }));
+      setShift(shiftForHour(now.getHours()));
+    };
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
@@ -30,10 +41,10 @@ export function HmiHeader() {
       <div className="hmi-header-right">
         <div className="hmi-meta">
           <span className="hmi-meta-label">Shift</span>
-          <span className="hmi-meta-value">A</span>
+          <span className="hmi-meta-value">{shift}</span>
         </div>
         <div className="hmi-meta">
-          <span className="hmi-meta-label">Line Time</span>
+          <span className="hmi-meta-label">Time</span>
           <span className="hmi-meta-value">{time}</span>
         </div>
         <StatusPill tone={lanes.length === 0 ? "idle" : lineTone} label={lineLabel} />

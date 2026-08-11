@@ -94,7 +94,7 @@ export function HmiTooltip({
         .filter((p) => p.value !== null && p.value !== undefined)
         .map((p) => (
           <div key={p.dataKey ?? p.name} style={{ color: p.color }}>
-            {p.name}: {p.value}
+            {p.name}: {typeof p.value === "number" ? p.value.toFixed(2) : p.value}
             {unit}
           </div>
         ))}

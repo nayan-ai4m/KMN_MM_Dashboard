@@ -20,8 +20,8 @@ function RangeTooltip({
   return (
     <div className="hmi-tooltip">
       <div className="hmi-tooltip-label">{label}</div>
-      <div>Estimated Min Value is {min} PV</div>
-      <div>Estimated Max Value is {max} PV</div>
+      <div>Estimated Min Value is {min.toFixed(2)} PV</div>
+      <div>Estimated Max Value is {max.toFixed(2)} PV</div>
     </div>
   );
 }
@@ -62,10 +62,11 @@ export function FinalPlodderSection() {
                   tickLine={false}
                   width={44}
                   type="number"
-                  domain={[(dataMin: number) => dataMin - 1, (dataMax: number) => dataMax + 1]}
+                  domain={[(dataMin: number) => dataMin - 0.1, (dataMax: number) => dataMax + 0.1]}
                 />
                 <Tooltip content={<RangeTooltip />} cursor={{ stroke: "rgba(255,255,255,0.18)" }} />
                 <Area
+                  type="monotone"
                   dataKey="range"
                   name="PV Estimation Min-Max Range"
                   stroke="rgba(33,243,122,0.35)"

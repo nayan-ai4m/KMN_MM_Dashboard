@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { HmiHeader } from "@/components/hmi/HmiHeader";
 import { MixerSection } from "@/components/hmi/MixerSection";
 import { TransportSection } from "@/components/hmi/TransportSection";
@@ -26,19 +25,10 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
-  const [batchType, setBatchType] = useState<"SOFT" | "HARD">("SOFT");
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setBatchType((v) => (Math.random() < 0.06 ? (v === "SOFT" ? "HARD" : "SOFT") : v));
-    }, 2000);
-    return () => clearInterval(id);
-  }, []);
-
   return (
     <main className="hmi-root">
       <HmiHeader />
-      <MixerSection batchType={batchType} />
+      <MixerSection />
       <TransportSection />
       <PrePlodderSection />
       <FinalPlodderSection />
