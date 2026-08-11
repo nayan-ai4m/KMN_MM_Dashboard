@@ -119,7 +119,7 @@ async def mixer_status():
     )
 
 
-MIXER_BATCH_TYPE_LOOKBACK_HOURS = 3
+MIXER_BATCH_TYPE_LOOKBACK_HOURS = 6
 
 
 @app.get("/api/mixer/batch-type")

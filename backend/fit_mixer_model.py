@@ -15,8 +15,10 @@ every server start.
 
 Usage:
     .venv/bin/python fit_mixer_model.py
+    .venv/bin/python fit_mixer_model.py --start "2026-08-08 00:00:00"   # only train on data from this IST timestamp onward
 ======================================================================
 """
+import argparse
 import os
 import time
 from contextlib import contextmanager
@@ -55,13 +57,17 @@ def _connect():
     )
 
 
-def _fetch_chunked(table: str, columns: str) -> pd.DataFrame:
-    """Fetch a whole table's history in visible day-sized chunks instead of
-    one giant query, so progress is printed live instead of going silent."""
+def _fetch_chunked(table: str, columns: str, start: pd.Timestamp | None = None) -> pd.DataFrame:
+    """Fetch a table's history (optionally from `start` onward) in visible
+    day-sized chunks instead of one giant query, so progress is printed live
+    instead of going silent."""
     conn = _connect()
     try:
         cur = conn.cursor()
-        cur.execute(f"SELECT min(timestamp), max(timestamp) FROM {table}")
+        if start is not None:
+            cur.execute(f"SELECT min(timestamp), max(timestamp) FROM {table} WHERE timestamp >= %s", (start,))
+        else:
+            cur.execute(f"SELECT min(timestamp), max(timestamp) FROM {table}")
         t_min, t_max = cur.fetchone()
         if t_min is None:
             return pd.DataFrame(columns=["timestamp"] + [c.strip() for c in columns.split(",")])
@@ -100,22 +106,32 @@ def _fetch_chunked(table: str, columns: str) -> pd.DataFrame:
     return df
 
 
-def fetch_history() -> pd.DataFrame:
+def fetch_history(start: pd.Timestamp | None = None) -> pd.DataFrame:
     df = _fetch_chunked(
         "mixer",
         "COALESCE(current_left, drive1_current) AS current_left, "
         "COALESCE(current_right, drive2_current) AS current_right, "
         "hopper_level",
+        start=start,
     )
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.tz_convert(IST).dt.tz_localize(None)
     return df.set_index("timestamp")
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Fit the mixer batch-hardness model.")
+    parser.add_argument(
+        "--start", type=str, default=None,
+        help="Only train on data from this timestamp onward (IST, e.g. '2026-08-08 00:00:00'). "
+             "Default: full history.",
+    )
+    args = parser.parse_args()
+    start = pd.Timestamp(args.start) if args.start else None
+
     cfg = Config()
 
     with _stage("[1/4] Fetching mixer history from Postgres"):
-        raw = fetch_history()
+        raw = fetch_history(start=start)
     print(f"  {len(raw):,} rows, {raw.index.min()} -> {raw.index.max()}")
 
     with _stage("[2/4] Cleaning + finding runs + classifying drop vs mixing (hopper settle-point)"):
