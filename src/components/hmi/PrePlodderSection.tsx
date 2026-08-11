@@ -1,68 +1,46 @@
-import { useCallback, useMemo } from "react";
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AXIS, HmiTooltip, KpiTile, Legend, Panel, StatusPill } from "./primitives";
-import { drift, nowLabel, pvPredictionSeries, useLiveSeries, type Point } from "@/lib/hmi-mock";
+import type { Point } from "@/lib/hmi-mock";
+import { usePolledJson } from "@/lib/usePolledJson";
 
-export function PrePlodderSection({
-  rpm,
-  turboTemp,
-  running,
-}: {
-  rpm: number;
-  turboTemp: number;
-  running: boolean;
-}) {
-  const initial = useMemo(() => pvPredictionSeries(), []);
-  const next = useCallback((prev: Point): Point => {
-    const base = Number(prev["predicted"] ?? prev["actual"] ?? 82);
-    const actual = drift(base, 2.4, 74, 90);
-    return { t: nowLabel(), actual, predicted: +(actual + (Math.random() - 0.4) * 1.6).toFixed(2) };
-  }, []);
-  const data = useLiveSeries(initial, next, 1800);
-  const boundary = data[data.length - 12]?.["t"] as string | undefined;
+type PrePlodderStatus = { rpm: number | null; turboInletTemp: number | null; running: boolean };
+
+export function PrePlodderSection() {
+  const data = usePolledJson<Point[]>("/api/pre-plodder/recent?minutes=10", 10_000, []);
+  const status = usePolledJson<PrePlodderStatus>("/api/pre-plodder/status", 10_000, {
+    rpm: null,
+    turboInletTemp: null,
+    running: false,
+  });
 
   return (
     <Panel
       area="hmi-area-pre"
       title="Pre-Plodder"
-      sub="Layer 02 · Prediction"
-      right={<StatusPill tone={running ? "run" : "fault"} label={running ? "Running" : "Stopped"} />}
+      sub="Data"
+      right={<StatusPill tone={status.running ? "run" : "fault"} label={status.running ? "Running" : "Stopped"} />}
     >
-      <Legend
-        items={[
-          { label: "PV Actual", color: "var(--hmi-c1)" },
-          { label: "PV Predicted", color: "var(--hmi-c4)" },
-        ]}
-      />
+      <Legend items={[{ label: "Pre-Plodder Current", color: "var(--hmi-c1)" }]} />
       <div className="hmi-chart">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 4, right: 6, bottom: 0, left: -18 }}>
             <CartesianGrid stroke="rgba(140,170,210,0.10)" vertical={false} />
             <XAxis dataKey="t" stroke={AXIS.stroke} tick={AXIS.tick} minTickGap={44} tickLine={false} />
-            <YAxis stroke={AXIS.stroke} tick={AXIS.tick} tickLine={false} width={44} domain={[70, 95]} />
-            <Tooltip content={<HmiTooltip unit=" PV" />} cursor={{ stroke: "rgba(255,255,255,0.18)" }} />
-            {boundary ? (
-              <ReferenceLine x={boundary} stroke="rgba(255,190,24,0.5)" strokeDasharray="4 4" />
-            ) : null}
-            <Line type="monotone" dataKey="actual" name="PV Actual" stroke="var(--hmi-c1)" strokeWidth={2.4} dot={false} connectNulls={false} isAnimationActive={false} />
-            <Line
-              type="monotone"
-              dataKey="predicted"
-              name="PV Predicted"
-              stroke="var(--hmi-c4)"
-              strokeWidth={2.4}
-              strokeDasharray="5 4"
-              dot={false}
-              connectNulls={false}
-              isAnimationActive={false}
-            />
+            <YAxis stroke={AXIS.stroke} tick={AXIS.tick} tickLine={false} width={44} domain={["auto", "auto"]} />
+            <Tooltip content={<HmiTooltip unit=" A" />} cursor={{ stroke: "rgba(255,255,255,0.18)" }} />
+            <Line type="monotone" dataKey="current" name="Current" stroke="var(--hmi-c1)" strokeWidth={2.4} dot={false} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
       <div className="hmi-tiles">
-        <KpiTile label="RPM" value={rpm.toFixed(0)} />
-        <KpiTile label="Turbo Inlet Temp" value={turboTemp.toFixed(1)} unit="°C" tone={turboTemp > 46 ? "warn" : "idle"} />
-        <KpiTile label="Running Status" value={running ? "RUN" : "STOP"} tone={running ? "run" : "fault"} />
+        <KpiTile label="RPM" value={status.rpm != null ? status.rpm.toFixed(0) : "—"} />
+        <KpiTile
+          label="Turbo Inlet Temp"
+          value={status.turboInletTemp != null ? status.turboInletTemp.toFixed(1) : "—"}
+          unit="°C"
+          tone={status.turboInletTemp != null && status.turboInletTemp > 46 ? "warn" : "idle"}
+        />
+        <KpiTile label="Running Status" value={status.running ? "RUNNING" : "STOPPED"} tone={status.running ? "run" : "fault"} />
       </div>
     </Panel>
   );

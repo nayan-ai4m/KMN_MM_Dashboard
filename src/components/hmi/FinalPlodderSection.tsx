@@ -1,38 +1,50 @@
-import { useCallback, useMemo } from "react";
-import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AXIS, HmiTooltip, KpiTile, Legend, Panel, StatusPill } from "./primitives";
-import { drift, nowLabel, pvEstimationSeries, useLiveSeries, type Point } from "@/lib/hmi-mock";
+import { Area, CartesianGrid, ComposedChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { AXIS, KpiTile, Legend, Panel, StatusPill } from "./primitives";
+import type { Point } from "@/lib/hmi-mock";
+import { usePolledJson } from "@/lib/usePolledJson";
 
-export function FinalPlodderSection({ coneTemp }: { coneTemp: number }) {
-  const initial = useMemo(() => pvEstimationSeries(), []);
-  const next = useCallback((prev: Point): Point => {
-    const pv = drift(Number(prev["pv"]), 2, 72, 88);
-    const spread = +(1.6 + Math.random() * 2.4).toFixed(2);
-    return {
-      t: nowLabel(),
-      pv,
-      range: [+(pv - spread).toFixed(2), +(pv + spread).toFixed(2)],
-      band: +(spread * 2).toFixed(2),
-    };
-  }, []);
-  const data = useLiveSeries(initial, next, 1700);
-  const tone = coneTemp > 74 ? "warn" : "run";
+type FinalPlodderStatus = { coneTemp: number | null; conePressure: number | null; running: boolean };
+
+function RangeTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { value?: [number, number] }[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const [min, max] = payload[0]?.value ?? [];
+  if (min == null || max == null) return null;
+  return (
+    <div className="hmi-tooltip">
+      <div className="hmi-tooltip-label">{label}</div>
+      <div>Estimated Min Value is {min} PV</div>
+      <div>Estimated Max Value is {max} PV</div>
+    </div>
+  );
+}
+
+export function FinalPlodderSection() {
+  const data = usePolledJson<Point[]>("/api/final-plodder/recent?minutes=10", 10_000, []);
+  const status = usePolledJson<FinalPlodderStatus>("/api/final-plodder/status", 10_000, {
+    coneTemp: null,
+    conePressure: null,
+    running: false,
+  });
+  const tone = status.coneTemp != null && status.coneTemp > 74 ? "warn" : "run";
+  const lastRange = data[data.length - 1]?.["range"] as [number, number] | undefined;
 
   return (
     <Panel
       area="hmi-area-final"
       title="Final Plodder"
-      sub="Layer 03 · Estimation"
-      right={<StatusPill tone="run" label="Estimating" />}
+      sub="Data · Estimation"
     >
       <div className="hmi-split">
         <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
-          <Legend
-            items={[
-              { label: "PV Estimate", color: "var(--hmi-c3)" },
-              { label: "Min–Max Band", color: "rgba(33,243,122,0.45)" },
-            ]}
-          />
+          <Legend items={[{ label: "PV Estimation Min-Max Range", color: "rgba(33,243,122,0.45)" }]} />
           <div className="hmi-chart">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={data} margin={{ top: 4, right: 6, bottom: 0, left: -18 }}>
@@ -50,35 +62,34 @@ export function FinalPlodderSection({ coneTemp }: { coneTemp: number }) {
                   tickLine={false}
                   width={44}
                   type="number"
-                  domain={[65, 95]}
-                  ticks={[65, 75, 85, 95]}
-                  allowDataOverflow
-                  includeHidden
+                  domain={[(dataMin: number) => dataMin - 1, (dataMax: number) => dataMax + 1]}
                 />
-
-                <Tooltip content={<HmiTooltip unit=" PV" />} cursor={{ stroke: "rgba(255,255,255,0.18)" }} />
+                <Tooltip content={<RangeTooltip />} cursor={{ stroke: "rgba(255,255,255,0.18)" }} />
                 <Area
-                  dataKey="range" baseValue={65}
-                  name="Min–Max"
+                  dataKey="range"
+                  name="PV Estimation Min-Max Range"
                   stroke="rgba(33,243,122,0.35)"
                   strokeWidth={1}
                   fill="url(#hmiBand)"
                   isAnimationActive={false}
                 />
-
-                <Line type="monotone" dataKey="pv" name="PV Estimate" stroke="var(--hmi-c3)" strokeWidth={2.4} dot={false} isAnimationActive={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>
         <div className="hmi-side">
-          <KpiTile label="Cone Heater Temp" value={coneTemp.toFixed(1)} unit="°C" tone={tone} />
-          <KpiTile label="PV Estimate" value={Number(data[data.length - 1]?.["pv"] ?? 0).toFixed(1)} />
-          <KpiTile
-            label="Band Width"
-            value={Number(data[data.length - 1]?.["band"] ?? 0).toFixed(2)}
+         <KpiTile
+            label="Estimated PV Range"
+            value={lastRange ? `${lastRange[0].toFixed(1)} – ${lastRange[1].toFixed(1)}` : "—"}
             unit="PV"
           />
+          <KpiTile
+            label="Cone Heater Temp"
+            value={status.coneTemp != null ? status.coneTemp.toFixed(1) : "—"}
+            unit="°C"
+            tone={tone}
+          />
+          <KpiTile label="Running Status" value={status.running ? "RUNNING" : "STOPPED"} tone={status.running ? "run" : "fault"} />
         </div>
       </div>
     </Panel>

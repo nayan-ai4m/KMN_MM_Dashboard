@@ -1,4 +1,3 @@
-import { useCallback, useMemo } from "react";
 import {
   CartesianGrid,
   Line,
@@ -9,31 +8,28 @@ import {
   YAxis,
 } from "recharts";
 import { AXIS, HmiTooltip, Legend, Panel, StatusPill } from "./primitives";
-import { drift, mixerSeries, nowLabel, useLiveSeries, type Point } from "@/lib/hmi-mock";
+import type { Point } from "@/lib/hmi-mock";
+import { usePolledJson } from "@/lib/usePolledJson";
 
-export function MixerSection({ batchCount, batchType }: { batchCount: number; batchType: "SOFT" | "HARD" }) {
-  const initial = useMemo(() => mixerSeries(), []);
-  const next = useCallback(
-    (prev: Point): Point => ({
-      t: nowLabel(),
-      motor1: drift(Number(prev["motor1"]), 6, 48, 76),
-      motor2: drift(Number(prev["motor2"]), 5, 42, 68),
-    }),
-    [],
-  );
-  const data = useLiveSeries(initial, next);
+type MixerStatus = { batchCount: number | null; running: boolean };
+
+export function MixerSection({ batchType }: { batchType: "SOFT" | "HARD" }) {
+  const data = usePolledJson<Point[]>("/api/mixer/recent?minutes=10", 10_000, []);
+  const status = usePolledJson<MixerStatus>("/api/mixer/status", 10_000, { batchCount: null, running: false });
 
   return (
     <Panel
       area="hmi-area-mixer"
       title="Mixer"
-      sub="Layer 01 · Data"
-      right={<StatusPill tone="run" label="Running" />}
+      sub="Data · Estimation"
+      right={<StatusPill tone={status.running ? "run" : "fault"} label={status.running ? "Running" : "Stopped"} />}
     >
       <div className="hmi-hero">
         <div>
           <div className="hmi-tile-label">Batch Count</div>
-          <div className="hmi-hero-value">{String(batchCount).padStart(3, "0")}</div>
+          <div className="hmi-hero-value">
+            {status.batchCount != null ? status.batchCount : "—"}
+          </div>
         </div>
         <div className={`hmi-badge is-${batchType.toLowerCase()}`}>
           <span className="hmi-dot" />
@@ -43,8 +39,8 @@ export function MixerSection({ batchCount, batchType }: { batchCount: number; ba
 
       <Legend
         items={[
-          { label: "Motor 1", color: "var(--hmi-c1)" },
-          { label: "Motor 2", color: "var(--hmi-c2)" },
+          { label: "Current_50HP", color: "var(--hmi-c1)" },
+          { label: "Current_60HP", color: "var(--hmi-c2)" },
         ]}
       />
 
@@ -53,12 +49,12 @@ export function MixerSection({ batchCount, batchType }: { batchCount: number; ba
           <LineChart data={data} margin={{ top: 4, right: 6, bottom: 0, left: -18 }}>
             <CartesianGrid stroke="rgba(140,170,210,0.10)" vertical={false} />
             <XAxis dataKey="t" stroke={AXIS.stroke} tick={AXIS.tick} minTickGap={40} tickLine={false} />
-            <YAxis stroke={AXIS.stroke} tick={AXIS.tick} tickLine={false} width={44} domain={[30, 85]} />
+            <YAxis stroke={AXIS.stroke} tick={AXIS.tick} tickLine={false} width={44} domain={["auto", "auto"]} />
             <Tooltip content={<HmiTooltip unit=" A" />} cursor={{ stroke: "rgba(255,255,255,0.18)" }} />
             <Line
               type="monotone"
-              dataKey="motor1"
-              name="Motor 1"
+              dataKey="Current_50HP"
+              name="Current_50HP"
               stroke="var(--hmi-c1)"
               strokeWidth={2.2}
               dot={false}
@@ -66,8 +62,8 @@ export function MixerSection({ batchCount, batchType }: { batchCount: number; ba
             />
             <Line
               type="monotone"
-              dataKey="motor2"
-              name="Motor 2"
+              dataKey="Current_60HP"
+              name="Current_60HP"
               stroke="var(--hmi-c2)"
               strokeWidth={2.2}
               dot={false}

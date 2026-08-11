@@ -42,7 +42,7 @@
   --hmi-pad: clamp(8px, 0.75vw, 16px);
 
   --hmi-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --hmi-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* --hmi-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace; */
 }
 
 /* ---------- Shell: strictly one screen, no scroll ---------- */
@@ -129,7 +129,7 @@
   font-size: clamp(9px, 0.66vw, 11px);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--hmi-text-faint);
+  color: var(--hmi-text);
   white-space: nowrap;
 }
 
@@ -192,7 +192,7 @@
   font-size: clamp(9px, 0.68vw, 11px);
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--hmi-text-faint);
+  color: var(--hmi-text);
 }
 
 .hmi-header-right {
@@ -287,17 +287,17 @@
 }
 
 .hmi-tile-label {
-  font-size: clamp(8px, 0.62vw, 10px);
+  font-size: 12px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--hmi-text-faint);
+  color: var(--hmi-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .hmi-tile-value {
-  font-family: var(--hmi-mono);
+  /* font-family: var(--hmi-mono); */
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   font-size: clamp(16px, 1.75vw, 30px);
@@ -378,15 +378,15 @@
 .hmi-lanes {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-auto-rows: minmax(0, 1fr);
-  gap: calc(var(--hmi-gap) * 0.75);
+  gap: 5px;
+  display: flex;
+  flex-direction: column;
 }
 
 .hmi-lane {
+  flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
   gap: 12px;
   padding: 0 clamp(10px, 0.9vw, 16px);
@@ -399,12 +399,17 @@
   );
 }
 
+.hmi-lane > div:not(.hmi-lane-state) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .hmi-lane.is-run { color: var(--hmi-run); }
 .hmi-lane.is-fault { color: var(--hmi-fault); }
 .hmi-lane.is-warn { color: var(--hmi-warn); }
 
 .hmi-lane-name {
-  font-family: var(--hmi-mono);
+  /* font-family: var(--hmi-mono); */
   font-weight: 700;
   font-size: clamp(11px, 0.95vw, 16px);
   color: var(--hmi-text);
@@ -418,9 +423,9 @@
 }
 
 .hmi-lane-count {
-  font-family: var(--hmi-mono);
-  font-size: clamp(9px, 0.7vw, 12px);
-  color: var(--hmi-text-dim);
+  /* font-family: var(--hmi-mono); */
+  font-size: 15px;
+  color: var(--hmi-text);
   text-align: right;
 }
 
@@ -445,15 +450,15 @@
   border-radius: 10px;
   background: rgba(8, 12, 18, 0.92);
   border: 1px solid var(--hmi-line-strong);
-  font-family: var(--hmi-mono);
-  font-size: 11px;
+  /* font-family: var(--hmi-mono); */
+  font-size: 14px;
   line-height: 1.5;
   color: var(--hmi-text);
   box-shadow: 0 12px 30px -16px #000;
 }
 
 .hmi-tooltip-label {
-  color: var(--hmi-text-faint);
+  color: var(--hmi-text);
   letter-spacing: 0.1em;
   margin-bottom: 2px;
 }

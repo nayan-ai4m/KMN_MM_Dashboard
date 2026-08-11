@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
-import { StatusPill } from "./primitives";
+import { StatusPill, type Tone } from "./primitives";
+import type { LaneRow } from "./BsmSection";
+import { usePolledJson } from "@/lib/usePolledJson";
 
-export function HmiHeader({ fault }: { fault: boolean }) {
+export function HmiHeader() {
   const [time, setTime] = useState("--:--:--");
+  const lanes = usePolledJson<LaneRow[]>("/api/bsm/lanes", 10_000, []);
 
   useEffect(() => {
     const update = () => setTime(new Date().toLocaleTimeString([], { hour12: false }));
@@ -10,6 +13,10 @@ export function HmiHeader({ fault }: { fault: boolean }) {
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
   }, []);
+
+  const runningLanes = lanes.filter((l) => l.status.toLowerCase() === "running").length;
+  const lineTone: Tone = runningLanes === 0 ? "fault" : runningLanes <= 2 ? "warn" : "run";
+  const lineLabel = lanes.length === 0 ? "—" : runningLanes === 0 ? "Line Stopped" : "Line Running";
 
   return (
     <header className="hmi-header hmi-area-head">
@@ -23,13 +30,13 @@ export function HmiHeader({ fault }: { fault: boolean }) {
       <div className="hmi-header-right">
         <div className="hmi-meta">
           <span className="hmi-meta-label">Shift</span>
-          <span className="hmi-meta-value">B · 08:00</span>
+          <span className="hmi-meta-value">A</span>
         </div>
         <div className="hmi-meta">
           <span className="hmi-meta-label">Line Time</span>
           <span className="hmi-meta-value">{time}</span>
         </div>
-        <StatusPill tone={fault ? "warn" : "run"} label={fault ? "Attention" : "Line Running"} />
+        <StatusPill tone={lanes.length === 0 ? "idle" : lineTone} label={lineLabel} />
       </div>
     </header>
   );
