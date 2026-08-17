@@ -31,7 +31,7 @@ import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
 
-from mixer_classify import Config, classify_runs, clean_frame, extract_features, find_runs, fit_classifier
+from mixer_classify import Config, classify_batch_events, clean_frame, extract_features, fit_classifier
 
 load_dotenv()
 IST = ZoneInfo("Asia/Kolkata")
@@ -134,16 +134,15 @@ def main():
         raw = fetch_history(start=start)
     print(f"  {len(raw):,} rows, {raw.index.min()} -> {raw.index.max()}")
 
-    with _stage("[2/4] Cleaning + finding runs + classifying drop vs mixing (hopper settle-point)"):
+    with _stage("[2/4] Cleaning + classifying drop / mixing / anomaly events"):
         df = clean_frame(raw, cfg)
-        runs = find_runs(df, cfg)
-        classified = classify_runs(runs, df, cfg)
-        mixing = [r for r in classified if r["kind"] == "mixing"
-                  and (r["end"] - r["start"]).total_seconds() >= cfg.full_batch_s]
-        drops = [r for r in classified if r["kind"] == "drop"]
-        unknown = [r for r in classified if r["kind"] == ""]
-    print(f"  runs: {len(classified)} | mixing (full-length): {len(mixing)} "
-          f"| drops: {len(drops)} | undetermined: {len(unknown)}")
+        events = classify_batch_events(df)
+        mixing = [dict(start=e["start"], end=e["end"], kind="mixing")
+                  for e in events if e["label"] == "MIX"]
+        drops = [e for e in events if e["label"] == "DROP"]
+        anomalies = [e for e in events if e["label"] == "ANOMALY"]
+    print(f"  events: {len(events)} | mixing (full-length): {len(mixing)} "
+          f"| drops: {len(drops)} | anomalies: {len(anomalies)}")
 
     with _stage("[3/4] Extracting per-batch features + fitting hardness model"):
         ft = extract_features(df, [(r["start"], r["end"]) for r in mixing], cfg)

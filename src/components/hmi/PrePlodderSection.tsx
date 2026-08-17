@@ -18,7 +18,6 @@ export function PrePlodderSection() {
       area="hmi-area-pre"
       title="Pre-Plodder"
       sub="Data"
-      right={<StatusPill tone={status.running ? "run" : "fault"} label={status.running ? "Running" : "Stopped"} />}
     >
       <Legend items={[{ label: "Pre-Plodder Current", color: "var(--hmi-c1)" }]} />
       <div className="hmi-chart">

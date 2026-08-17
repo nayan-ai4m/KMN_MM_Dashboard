@@ -131,6 +131,103 @@ def classify_runs(runs, df: pd.DataFrame, cfg: Config):
     return out
 
 
+# ==========================================================================
+# Batch DROP / MIXING / ANOMALY event classifier - independently derived
+# and validated against a full week of drive1_current + noodler
+# hopper_level data (see backend/mixer_batch_tui.py for the derivation and
+# a standalone CLI version of this same logic). Supersedes find_runs +
+# classify_runs above as the batch-boundary source for extract_features:
+# find_runs' 45s merge_gap was swallowing the ~30-45s pause that normally
+# separates a drop from the following mix, fusing whole sequences of
+# cycles into single giant "runs" that classify_runs then couldn't cleanly
+# label. This classifier works directly off drive1_current (current_left)
+# alone, with duration + a hopper-rise confirmation check, and was
+# validated cycle-by-cycle against hopper_level across a full week.
+# ==========================================================================
+EVENT_ON_THRESHOLD_A = 15.0        # current above this = motor running
+EVENT_DROP_MAX_S = 350.0           # runs shorter than this = drop candidate; longer = mixing
+EVENT_MIN_ON_S = 15.0              # fold on-blips shorter than this back into OFF (debounce)
+EVENT_MIN_RUN_S = 10.0             # ignore degenerate runs shorter than this
+EVENT_HOP_RISE_MIN_CONFIRM = 10.0  # min hopper rise within segment to confirm a real DROP
+
+
+def classify_batch_events(df: pd.DataFrame) -> list[dict]:
+    """Segment current_left into OFF / DROP / MIX / ANOMALY events.
+
+    hopper_rise = max(hopper_level) - hopper_level at segment start (not
+    end-minus-start: a concurrent noodler cycle can consume material
+    mid-segment and erase a net delta even when a real drop happened).
+    Across a full week, drop-current-band bursts (19-26A) split cleanly on
+    this signal: a cluster near zero rise (no material moved -> ANOMALY)
+    and a second cluster from ~12 upward (confirmed DROP), with almost
+    nothing in between. Duration alone does NOT separate them - anomaly
+    and real-drop durations overlap heavily (5-135s vs 25-260s).
+    """
+    if df.empty or "current_left" not in df.columns:
+        return []
+
+    idx = df.index
+    cur = df["current_left"].to_numpy()
+    hop = (
+        df["hopper_level"].to_numpy()
+        if "hopper_level" in df.columns
+        else np.full(len(df), np.nan)
+    )
+    state = cur > EVENT_ON_THRESHOLD_A
+
+    raw_runs = []
+    start_i, run_state = 0, state[0]
+    for i in range(1, len(state)):
+        if state[i] != run_state:
+            raw_runs.append((run_state, start_i, i - 1))
+            run_state, start_i = state[i], i
+    raw_runs.append((run_state, start_i, len(state) - 1))
+
+    merged = []
+    for s, a, b in raw_runs:
+        dur = (idx[b] - idx[a]).total_seconds()
+        if s and dur < EVENT_MIN_ON_S:
+            s = False
+        if merged and merged[-1][0] == s:
+            merged[-1] = (s, merged[-1][1], b)
+        else:
+            merged.append([s, a, b])
+
+    # the trailing run may just be cut off by the query window rather than
+    # actually finished - drop it so it never gets mislabeled ANOMALY for
+    # not having had time to show a hopper rise, or MIX for looking "long"
+    # only because the window ended.
+    if merged and merged[-1][0] and merged[-1][2] == len(state) - 1:
+        merged = merged[:-1]
+
+    events = []
+    for s, a, b in merged:
+        t0, t1 = idx[a], idx[b]
+        dur = (t1 - t0).total_seconds()
+        if dur < EVENT_MIN_RUN_S:
+            continue
+        currents = cur[a : b + 1]
+        hoppers = hop[a : b + 1]
+        valid = hoppers[~np.isnan(hoppers)]
+        hop_start = float(valid[0]) if len(valid) else None
+        hop_end = float(valid[-1]) if len(valid) else None
+        hop_rise = float(np.nanmax(hoppers) - hop_start) if hop_start is not None else None
+
+        if not s:
+            label = "OFF"
+        elif dur < EVENT_DROP_MAX_S:
+            label = "DROP" if (hop_rise is not None and hop_rise >= EVENT_HOP_RISE_MIN_CONFIRM) else "ANOMALY"
+        else:
+            label = "MIX"
+
+        events.append(dict(
+            label=label, start=t0, end=t1, duration_s=dur,
+            current_median=float(np.median(currents)),
+            hopper_start=hop_start, hopper_end=hop_end, hopper_rise=hop_rise,
+        ))
+    return events
+
+
 def _phase_stats(x: np.ndarray, floor: float) -> dict:
     x = x[x > floor]
     if x.size == 0:
