@@ -18,6 +18,12 @@ export function PrePlodderSection() {
       area="hmi-area-pre"
       title="Pre-Plodder"
       sub="Data"
+      right={
+        <StatusPill
+          tone={status.running ? "run" : "fault"}
+          label={status.running ? "RUNNING" : "STOPPED"}
+        />
+      }
     >
       <Legend items={[{ label: "Pre-Plodder Current", color: "var(--hmi-c1)" }]} />
       <div className="hmi-chart">
@@ -32,14 +38,13 @@ export function PrePlodderSection() {
         </ResponsiveContainer>
       </div>
       <div className="hmi-tiles">
-        <KpiTile label="RPM" value={status.rpm != null ? status.rpm.toFixed(0) : "—"} />
+        <KpiTile label="Pre-Plodder RPM" value={status.rpm != null ? status.rpm.toFixed(0) : "—"} />
         <KpiTile
-          label="Turbo Inlet Temp"
+          label="Jacket Inlet Temperature"
           value={status.turboInletTemp != null ? status.turboInletTemp.toFixed(1) : "—"}
           unit="°C"
           tone={status.turboInletTemp != null && status.turboInletTemp > 46 ? "warn" : "idle"}
         />
-        <KpiTile label="Running Status" value={status.running ? "RUNNING" : "STOPPED"} tone={status.running ? "run" : "fault"} />
       </div>
     </Panel>
   );

@@ -8,10 +8,11 @@ import pandas as pd
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 import mixer_classify as mc
 import postgres
-from helpers import int_param, respond
+from helpers import int_param, respond, respond_err
 
 load_dotenv()
 
@@ -30,9 +31,26 @@ def _load_mixer_model():
     return _mixer_model_cache["model"]
 
 
+SKU_TABLE_DDL = """
+CREATE TABLE IF NOT EXISTS sku_config (
+    sku_code TEXT PRIMARY KEY,
+    sku_name TEXT NOT NULL,
+    product_color TEXT,
+    orifice_top_bottom_width NUMERIC,
+    orifice_height NUMERIC,
+    orifice_middle_width NUMERIC,
+    soaps_per_bar INTEGER,
+    soap_weight NUMERIC,
+    bar_weight NUMERIC,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+)
+"""
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await postgres.get_pool()
+    await postgres.execute(SKU_TABLE_DDL)
     yield
     await postgres.close_pool()
 
@@ -228,6 +246,28 @@ async def bsm_lanes():
     return respond(lanes)
 
 
+@app.get("/api/recycle/latest")
+async def recycle_latest():
+    row = await postgres.fetchrow(
+        "SELECT timestamp, fringe_mass, recycle_bar_mass, recycle_soap_mass "
+        "FROM recycle_material ORDER BY timestamp DESC LIMIT 1"
+    )
+    if row is None:
+        return respond({"time": None, "fringeMass": None, "barMass": None, "soapMass": None})
+
+    def num(value):
+        return float(value) if value is not None else None
+
+    return respond(
+        {
+            "time": row["timestamp"].astimezone(IST).strftime("%H:%M") if row["timestamp"] is not None else None,
+            "fringeMass": num(row["fringe_mass"]),
+            "barMass": num(row["recycle_bar_mass"]),
+            "soapMass": num(row["recycle_soap_mass"]),
+        }
+    )
+
+
 @app.get("/api/final-plodder/recent")
 async def final_plodder_recent(request: Request):
     minutes = int_param(request, "minutes", default=10)
@@ -265,3 +305,85 @@ async def final_plodder_status():
             "running": current != 0,
         }
     )
+
+
+class SkuPayload(BaseModel):
+    skuCode: str
+    skuName: str
+    productColor: str | None = None
+    orificeTopBottomWidth: float | None = None
+    orificeHeight: float | None = None
+    orificeMiddleWidth: float | None = None
+    soapsPerBar: int | None = None
+    soapWeight: float | None = None
+    barWeight: float | None = None
+
+
+def _sku_row_to_json(r) -> dict:
+    def num(value):
+        return float(value) if value is not None else None
+
+    return {
+        "skuCode": r["sku_code"],
+        "skuName": r["sku_name"],
+        "productColor": r["product_color"],
+        "orificeTopBottomWidth": num(r["orifice_top_bottom_width"]),
+        "orificeHeight": num(r["orifice_height"]),
+        "orificeMiddleWidth": num(r["orifice_middle_width"]),
+        "soapsPerBar": int(r["soaps_per_bar"]) if r["soaps_per_bar"] is not None else None,
+        "soapWeight": num(r["soap_weight"]),
+        "barWeight": num(r["bar_weight"]),
+        "updatedAt": r["updated_at"].astimezone(IST).isoformat() if r["updated_at"] is not None else None,
+    }
+
+
+@app.get("/api/sku")
+async def sku_list():
+    rows = await postgres.fetch("SELECT * FROM sku_config ORDER BY sku_code")
+    return respond([_sku_row_to_json(r) for r in rows])
+
+
+@app.post("/api/sku")
+async def sku_save(payload: SkuPayload):
+    code = payload.skuCode.strip()
+    name = payload.skuName.strip()
+    if not code:
+        return respond_err("SKU code is required")
+    if not name:
+        return respond_err("SKU name is required")
+
+    row = await postgres.fetchrow(
+        "INSERT INTO sku_config (sku_code, sku_name, product_color, "
+        "orifice_top_bottom_width, orifice_height, orifice_middle_width, "
+        "soaps_per_bar, soap_weight, bar_weight, updated_at) "
+        "VALUES ($1, $2, $3, $4::float8, $5::float8, $6::float8, $7, $8::float8, $9::float8, now()) "
+        "ON CONFLICT (sku_code) DO UPDATE SET "
+        "sku_name = EXCLUDED.sku_name, "
+        "product_color = EXCLUDED.product_color, "
+        "orifice_top_bottom_width = EXCLUDED.orifice_top_bottom_width, "
+        "orifice_height = EXCLUDED.orifice_height, "
+        "orifice_middle_width = EXCLUDED.orifice_middle_width, "
+        "soaps_per_bar = EXCLUDED.soaps_per_bar, "
+        "soap_weight = EXCLUDED.soap_weight, "
+        "bar_weight = EXCLUDED.bar_weight, "
+        "updated_at = now() "
+        "RETURNING *",
+        code,
+        name,
+        payload.productColor.strip() if payload.productColor else None,
+        payload.orificeTopBottomWidth,
+        payload.orificeHeight,
+        payload.orificeMiddleWidth,
+        payload.soapsPerBar,
+        payload.soapWeight,
+        payload.barWeight,
+    )
+    return respond(_sku_row_to_json(row))
+
+
+@app.delete("/api/sku/{sku_code}")
+async def sku_delete(sku_code: str):
+    result = await postgres.execute("DELETE FROM sku_config WHERE sku_code = $1", sku_code)
+    if result == "DELETE 0":
+        return respond_err("SKU not found", status=404)
+    return respond({"deleted": sku_code})

@@ -41,11 +41,15 @@ export function FinalPlodderSection() {
       area="hmi-area-final"
       title="Final Plodder"
       sub="Data · Estimation"
+      right={
+        <StatusPill
+          tone={status.running ? "run" : "fault"}
+          label={status.running ? "RUNNING" : "STOPPED"}
+        />
+      }
     >
-      <div className="hmi-split">
-        <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: "6px" }}>
-          <Legend items={[{ label: "PV Estimation Min-Max Range", color: "rgba(33,243,122,0.45)" }]} />
-          <div className="hmi-chart">
+      <Legend items={[{ label: "PV Estimation Min-Max Range", color: "rgba(33,243,122,0.45)" }]} />
+      <div className="hmi-chart">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={data} margin={{ top: 4, right: 6, bottom: 0, left: -18 }}>
                 <defs>
@@ -75,23 +79,20 @@ export function FinalPlodderSection() {
                   isAnimationActive={false}
                 />
               </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        <div className="hmi-side">
-         <KpiTile
+        </ResponsiveContainer>
+      </div>
+      <div className="hmi-tiles">
+        <KpiTile
             label="Estimated PV Range"
             value={lastRange ? `${lastRange[0].toFixed(1)} – ${lastRange[1].toFixed(1)}` : "—"}
             unit="PV"
           />
           <KpiTile
-            label="Cone Heater Temp"
+            label="Heater Cone Temperature"
             value={status.coneTemp != null ? status.coneTemp.toFixed(1) : "—"}
             unit="°C"
             tone={tone}
           />
-          <KpiTile label="Running Status" value={status.running ? "RUNNING" : "STOPPED"} tone={status.running ? "run" : "fault"} />
-        </div>
       </div>
     </Panel>
   );

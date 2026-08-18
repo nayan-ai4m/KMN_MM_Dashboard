@@ -65,18 +65,39 @@
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1.25fr);
   grid-template-areas:
     "head head head"
-    "mixer transport pre"
-    "final final bsm";
+    "mixer transport recycle"
+    "pre final bsm";
   gap: var(--hmi-gap);
   padding: var(--hmi-gap);
 }
 
-.hmi-area-head { grid-area: head; }
-.hmi-area-mixer { grid-area: mixer; }
-.hmi-area-transport { grid-area: transport; }
-.hmi-area-pre { grid-area: pre; }
-.hmi-area-final { grid-area: final; }
-.hmi-area-bsm { grid-area: bsm; }
+.hmi-area-head {
+  grid-area: head;
+}
+
+.hmi-area-mixer {
+  grid-area: mixer;
+}
+
+.hmi-area-transport {
+  grid-area: transport;
+}
+
+.hmi-area-pre {
+  grid-area: pre;
+}
+
+.hmi-area-final {
+  grid-area: final;
+}
+
+.hmi-area-recycle {
+  grid-area: recycle;
+}
+
+.hmi-area-bsm {
+  grid-area: bsm;
+}
 
 /* ---------- Glass panel ---------- */
 .hmi-panel {
@@ -92,9 +113,9 @@
   border: 1px solid var(--hmi-line);
   backdrop-filter: blur(14px) saturate(130%);
   -webkit-backdrop-filter: blur(14px) saturate(130%);
-  box-shadow:
+  /* box-shadow:
     0 18px 40px -24px rgba(0, 0, 0, 0.9),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06); */
   overflow: hidden;
 }
 
@@ -161,7 +182,12 @@
   -webkit-backdrop-filter: blur(14px) saturate(130%);
 }
 
-.hmi-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.hmi-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
 
 .hmi-mark {
   width: clamp(30px, 2.4vw, 40px);
@@ -240,10 +266,21 @@
   background: color-mix(in oklab, currentColor 14%, transparent);
 }
 
-.hmi-pill.is-run { color: var(--hmi-run); }
-.hmi-pill.is-fault { color: var(--hmi-fault); }
-.hmi-pill.is-warn { color: var(--hmi-warn); }
-.hmi-pill.is-idle { color: var(--hmi-text-dim); }
+.hmi-pill.is-run {
+  color: var(--hmi-run);
+}
+
+.hmi-pill.is-fault {
+  color: var(--hmi-fault);
+}
+
+.hmi-pill.is-warn {
+  color: var(--hmi-warn);
+}
+
+.hmi-pill.is-idle {
+  color: var(--hmi-text-dim);
+}
 
 .hmi-dot {
   width: 9px;
@@ -251,17 +288,28 @@
   flex: none;
   border-radius: 50%;
   background: currentColor;
-  box-shadow: 0 0 12px currentColor;
+  /* box-shadow: 0 0 12px currentColor; */
   animation: hmi-pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes hmi-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.45; transform: scale(0.82); }
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hmi-dot { animation: none; }
+  .hmi-dot {
+    animation: none;
+  }
 }
 
 /* ---------- KPI tiles ---------- */
@@ -283,7 +331,7 @@
   border-radius: 12px;
   background: var(--hmi-tile);
   border: 1px solid var(--hmi-line);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  /* box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); */
 }
 
 .hmi-tile-label {
@@ -313,11 +361,25 @@
   margin-left: 4px;
 }
 
-.hmi-tile.is-run .hmi-tile-value { color: var(--hmi-run); }
-.hmi-tile.is-fault .hmi-tile-value { color: var(--hmi-fault); }
-.hmi-tile.is-warn .hmi-tile-value { color: var(--hmi-warn); }
-.hmi-tile.is-soft .hmi-tile-value { color: var(--hmi-soft); }
-.hmi-tile.is-hard .hmi-tile-value { color: var(--hmi-hard); }
+.hmi-tile.is-run .hmi-tile-value {
+  color: var(--hmi-run);
+}
+
+.hmi-tile.is-fault .hmi-tile-value {
+  color: var(--hmi-fault);
+}
+
+.hmi-tile.is-warn .hmi-tile-value {
+  color: var(--hmi-warn);
+}
+
+.hmi-tile.is-soft .hmi-tile-value {
+  color: var(--hmi-soft);
+}
+
+.hmi-tile.is-hard .hmi-tile-value {
+  color: var(--hmi-hard);
+}
 
 /* Big hero KPI (batch count) */
 .hmi-hero {
@@ -338,7 +400,7 @@
   font-size: clamp(30px, 4vw, 64px);
   line-height: 0.95;
   letter-spacing: -0.03em;
-  text-shadow: 0 0 34px rgba(55, 182, 255, 0.25);
+  /* text-shadow: 0 0 34px rgba(55, 182, 255, 0.25); */
 }
 
 .hmi-badge {
@@ -355,10 +417,21 @@
   background: color-mix(in oklab, currentColor 16%, transparent);
 }
 
-.hmi-badge.is-soft { color: var(--hmi-soft); }
-.hmi-badge.is-hard { color: var(--hmi-hard); }
-.hmi-badge.is-anomaly { color: var(--hmi-fault); }
-.hmi-badge.is-pending { color: var(--hmi-text-dim); }
+.hmi-badge.is-soft {
+  color: var(--hmi-soft);
+}
+
+.hmi-badge.is-hard {
+  color: var(--hmi-hard);
+}
+
+.hmi-badge.is-anomaly {
+  color: var(--hmi-fault);
+}
+
+.hmi-badge.is-pending {
+  color: var(--hmi-text-dim);
+}
 
 /* ---------- Final plodder split ---------- */
 .hmi-split {
@@ -394,21 +467,27 @@
   padding: 0 clamp(10px, 0.9vw, 16px);
   border-radius: 12px;
   border: 1px solid color-mix(in oklab, currentColor 45%, transparent);
-  background: linear-gradient(
-    100deg,
-    color-mix(in oklab, currentColor 18%, transparent),
-    color-mix(in oklab, currentColor 6%, transparent)
-  );
+  background: linear-gradient(100deg,
+      color-mix(in oklab, currentColor 18%, transparent),
+      color-mix(in oklab, currentColor 6%, transparent));
 }
 
-.hmi-lane > div:not(.hmi-lane-state) {
+.hmi-lane>div:not(.hmi-lane-state) {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.hmi-lane.is-run { color: var(--hmi-run); }
-.hmi-lane.is-fault { color: var(--hmi-fault); }
-.hmi-lane.is-warn { color: var(--hmi-warn); }
+.hmi-lane.is-run {
+  color: var(--hmi-run);
+}
+
+.hmi-lane.is-fault {
+  color: var(--hmi-fault);
+}
+
+.hmi-lane.is-warn {
+  color: var(--hmi-warn);
+}
 
 .hmi-lane-name {
   /* font-family: var(--hmi-mono); */
@@ -431,6 +510,58 @@
   text-align: right;
 }
 
+/* ---------- Recycle donut ---------- */
+.hmi-donut-wrap {
+  position: relative;
+}
+
+.hmi-donut-label {
+  font-size: clamp(10px, 0.8vw, 14px);
+  font-weight: 600;
+}
+
+.hmi-donut-latest {
+  font-size: clamp(9px, 0.7vw, 12px);
+  letter-spacing: 0.08em;
+  color: var(--hmi-text-dim);
+  white-space: nowrap;
+}
+
+.hmi-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+  text-align: center;
+}
+
+.hmi-donut-center-label {
+  font-size: 20px;
+  letter-spacing: 0.08em;
+  color: var(--hmi-text-dim);
+}
+
+.hmi-donut-center-value {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--hmi-text);
+}
+
+.hmi-donut-empty {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(11px, 0.9vw, 14px);
+  color: var(--hmi-text-faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 /* ---------- Legend ---------- */
 .hmi-legend {
   display: flex;
@@ -442,9 +573,19 @@
   color: var(--hmi-text-dim);
 }
 
-.hmi-legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.hmi-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
 
-.hmi-swatch { width: 10px; height: 3px; border-radius: 2px; background: currentColor; }
+.hmi-swatch {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+  background: currentColor;
+}
 
 /* ---------- Tooltip ---------- */
 .hmi-tooltip {
@@ -456,13 +597,206 @@
   font-size: 14px;
   line-height: 1.5;
   color: var(--hmi-text);
-  box-shadow: 0 12px 30px -16px #000;
+  /* box-shadow: 0 12px 30px -16px #000; */
 }
 
 .hmi-tooltip-label {
   color: var(--hmi-text);
   letter-spacing: 0.1em;
   margin-bottom: 2px;
+}
+
+/* ---------- Buttons ---------- */
+.hmi-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-family: var(--hmi-font);
+  font-size: clamp(9px, 0.72vw, 12px);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--hmi-text);
+  background: color-mix(in oklab, var(--hmi-text-dim) 12%, transparent);
+  border: 1px solid var(--hmi-line-strong);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.hmi-btn:hover {
+  background: color-mix(in oklab, var(--hmi-text-dim) 22%, transparent);
+}
+
+.hmi-btn.is-primary {
+  color: var(--hmi-run);
+  border-color: currentColor;
+  background: color-mix(in oklab, currentColor 14%, transparent);
+}
+
+.hmi-btn.is-primary:hover {
+  background: color-mix(in oklab, currentColor 24%, transparent);
+}
+
+.hmi-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- SKU configurator modal ---------- */
+.hmi-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 2vw, 32px);
+  background: rgba(4, 7, 11, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.hmi-modal {
+  width: min(720px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hmi-gap);
+  padding: clamp(14px, 1.4vw, 24px);
+  border-radius: var(--hmi-radius);
+  background: linear-gradient(165deg, rgba(24, 33, 47, 0.97), rgba(15, 21, 31, 0.97));
+  border: 1px solid var(--hmi-line-strong);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.95);
+}
+
+.hmi-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hmi-modal-close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--hmi-text-dim);
+  background: transparent;
+  border: 1px solid var(--hmi-line);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.hmi-modal-close:hover {
+  color: var(--hmi-text);
+  border-color: var(--hmi-line-strong);
+}
+
+.hmi-brand-logo {
+  width: 60px;
+  aspect-ratio: 1;
+  flex: none;
+}
+
+.hmi-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: calc(var(--hmi-gap) * 0.9);
+}
+
+.hmi-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.hmi-field-wide {
+  grid-column: 1 / -1;
+}
+
+.hmi-field-label {
+  font-size: clamp(9px, 0.68vw, 11px);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hmi-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hmi-field-unit {
+  font-style: normal;
+  color: var(--hmi-text-faint);
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+
+.hmi-input {
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-family: var(--hmi-font);
+  font-size: 14px;
+  color: var(--hmi-text);
+  background: var(--hmi-tile);
+  border: 1px solid var(--hmi-line);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.hmi-input:focus {
+  border-color: var(--hmi-c1);
+}
+
+.hmi-input::placeholder {
+  color: var(--hmi-text-faint);
+}
+
+select.hmi-input option {
+  background: var(--hmi-bg-2);
+  color: var(--hmi-text);
+}
+
+.hmi-modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hmi-modal-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.hmi-modal-notice {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  min-width: 0;
+}
+
+.hmi-modal-notice.is-ok {
+  color: var(--hmi-run);
+}
+
+.hmi-modal-notice.is-err {
+  color: var(--hmi-fault);
+}
+
+@media (max-width: 720px) {
+  .hmi-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ---------- Responsive re-flow (still no scroll) ---------- */
@@ -473,25 +807,40 @@
     grid-template-areas:
       "head head"
       "mixer transport"
-      "pre pre"
+      "recycle pre"
       "final bsm";
   }
-  .hmi-split { grid-template-columns: minmax(0, 1fr) clamp(120px, 22vw, 200px); }
+
+  .hmi-split {
+    grid-template-columns: minmax(0, 1fr) clamp(120px, 22vw, 200px);
+  }
 }
 
 @media (max-width: 720px) {
   .hmi-root {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto repeat(5, minmax(0, 1fr));
+    grid-template-rows: auto repeat(6, minmax(0, 1fr));
     grid-template-areas:
       "head"
       "mixer"
       "transport"
+      "recycle"
       "pre"
       "final"
       "bsm";
   }
-  .hmi-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
-  .hmi-side { grid-auto-flow: column; grid-auto-rows: auto; }
-  .hmi-header-right .hmi-meta { display: none; }
+
+  .hmi-split {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .hmi-side {
+    grid-auto-flow: column;
+    grid-auto-rows: auto;
+  }
+
+  .hmi-header-right .hmi-meta {
+    display: none;
+  }
 }

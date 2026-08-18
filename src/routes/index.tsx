@@ -5,6 +5,7 @@ import { TransportSection } from "@/components/hmi/TransportSection";
 import { PrePlodderSection } from "@/components/hmi/PrePlodderSection";
 import { FinalPlodderSection } from "@/components/hmi/FinalPlodderSection";
 import { BsmSection } from "@/components/hmi/BsmSection";
+import { RecycleSection } from "@/components/hmi/RecycleSection";
 
 const TITLE = "Cascade 2 — Soap Line HMI Dashboard";
 const DESC =
@@ -30,6 +31,7 @@ function Dashboard() {
       <HmiHeader />
       <MixerSection />
       <TransportSection />
+      <RecycleSection />
       <PrePlodderSection />
       <FinalPlodderSection />
       <BsmSection />
