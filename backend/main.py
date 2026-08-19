@@ -10,6 +10,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import fresh_material
 import mixer_classify as mc
 import postgres
 from helpers import int_param, respond, respond_err
@@ -246,14 +247,27 @@ async def bsm_lanes():
     return respond(lanes)
 
 
+RECYCLE_FRESH_WINDOW_MIN = 1
+
+
 @app.get("/api/recycle/latest")
 async def recycle_latest():
     row = await postgres.fetchrow(
         "SELECT timestamp, fringe_mass, recycle_bar_mass, recycle_soap_mass "
         "FROM recycle_material ORDER BY timestamp DESC LIMIT 1"
     )
+    fresh = await fresh_material.fresh_mass_kg(RECYCLE_FRESH_WINDOW_MIN)
+
     if row is None:
-        return respond({"time": None, "fringeMass": None, "barMass": None, "soapMass": None})
+        return respond(
+            {
+                "time": None,
+                "fringeMass": None,
+                "barMass": None,
+                "soapMass": None,
+                "freshMass": fresh["kg"],
+            }
+        )
 
     def num(value):
         return float(value) if value is not None else None
@@ -264,6 +278,7 @@ async def recycle_latest():
             "fringeMass": num(row["fringe_mass"]),
             "barMass": num(row["recycle_bar_mass"]),
             "soapMass": num(row["recycle_soap_mass"]),
+            "freshMass": fresh["kg"],
         }
     )
 

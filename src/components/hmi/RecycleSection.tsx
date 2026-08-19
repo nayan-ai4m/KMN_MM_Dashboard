@@ -1,19 +1,26 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { HmiTooltip, Panel } from "./primitives";
-import { usePolledJson } from "@/lib/usePolledJson";
+import { usePolledJsonAtSeconds } from "@/lib/usePolledJson";
 
 type RecycleLatest = {
   time: string | null;
   fringeMass: number | null;
   barMass: number | null;
   soapMass: number | null;
+  freshMass: number | null;
 };
 
 const SLICES = [
   { key: "fringeMass", name: "Fringe", color: "var(--hmi-hard)" },
   { key: "soapMass", name: "Soap", color: "var(--hmi-c3)" },
   { key: "barMass", name: "Bar", color: "var(--hmi-c1)" },
+  { key: "freshMass", name: "New Material", color: "var(--hmi-c2)" },
 ] as const;
+
+// Recycle + fresh-material composition is fetched once a minute at a fixed
+// wall-clock offset (:15s) rather than a rolling interval from mount - by
+// then the previous full clock minute's noodler/mixer data is already in.
+const COMPOSITION_POLL_SECONDS = [15] as const;
 
 const RAD = Math.PI / 180;
 
@@ -53,11 +60,12 @@ function SliceLabel({
 }
 
 export function RecycleSection() {
-  const latest = usePolledJson<RecycleLatest>("/api/recycle/latest", 30_000, {
+  const latest = usePolledJsonAtSeconds<RecycleLatest>("/api/recycle/latest", COMPOSITION_POLL_SECONDS, {
     time: null,
     fringeMass: null,
     barMass: null,
     soapMass: null,
+    freshMass: null,
   });
 
   const data = SLICES.map((s) => ({ name: s.name, value: latest[s.key] ?? 0, color: s.color })).filter(
