@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { StatusPill, type Tone } from "./primitives";
 import type { LaneRow } from "./BsmSection";
-import { SkuConfigModal } from "./SkuConfigModal";
+import { SkuConfigModal, type SkuConfig } from "./SkuConfigModal";
 import { usePolledJson } from "@/lib/usePolledJson";
 
 function shiftForHour(hour: number): "A" | "B" | "C" {
@@ -15,6 +15,8 @@ export function HmiHeader() {
   const [shift, setShift] = useState<"A" | "B" | "C">(() => shiftForHour(new Date().getHours()));
   const [skuModalOpen, setSkuModalOpen] = useState(false);
   const lanes = usePolledJson<LaneRow[]>("/api/bsm/lanes", 10_000, []);
+  const skuConfig = usePolledJson<SkuConfig>("/api/sku-config", 30_000, { activeSku: null, skus: [] });
+  const activeSku = skuConfig.skus.find((s) => s.skuCode === skuConfig.activeSku) ?? null;
 
   useEffect(() => {
     const update = () => {
@@ -48,6 +50,12 @@ export function HmiHeader() {
         <div className="hmi-meta">
           <span className="hmi-meta-label">Time</span>
           <span className="hmi-meta-value">{time}</span>
+        </div>
+        <div className="hmi-meta">
+          <span className="hmi-meta-label">SKU</span>
+          <span className="hmi-meta-value">
+            {activeSku ? `${activeSku.skuCode} · ${activeSku.skuName}${activeSku.productColor ? ` · ${activeSku.productColor}` : ""}` : "—"}
+          </span>
         </div>
         <button type="button" className="hmi-btn" onClick={() => setSkuModalOpen(true)}>
           SKU Config

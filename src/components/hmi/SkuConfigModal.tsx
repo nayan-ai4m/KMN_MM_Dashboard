@@ -6,46 +6,41 @@ export type Sku = {
   skuCode: string;
   skuName: string;
   productColor: string | null;
-  orificeTopBottomWidth: number | null;
-  orificeHeight: number | null;
-  orificeMiddleWidth: number | null;
   soapsPerBar: number | null;
-  soapWeight: number | null;
-  barWeight: number | null;
-  updatedAt?: string | null;
+  soapWeightG: number | null;
+  longBarWeightG: number | null;
+  barKg: number | null;
+  soapKg: number | null;
+  fringeKg: number | null;
+};
+
+export type SkuConfig = {
+  activeSku: string | null;
+  skus: Sku[];
 };
 
 type FormState = {
   skuCode: string;
   skuName: string;
   productColor: string;
-  orificeTopBottomWidth: string;
-  orificeHeight: string;
-  orificeMiddleWidth: string;
   soapsPerBar: string;
-  soapWeight: string;
-  barWeight: string;
+  soapWeightG: string;
+  longBarWeightG: string;
 };
 
 const EMPTY_FORM: FormState = {
   skuCode: "",
   skuName: "",
   productColor: "",
-  orificeTopBottomWidth: "",
-  orificeHeight: "",
-  orificeMiddleWidth: "",
   soapsPerBar: "",
-  soapWeight: "",
-  barWeight: "",
+  soapWeightG: "",
+  longBarWeightG: "",
 };
 
 const NUMBER_FIELDS: { key: keyof FormState; label: string; unit: string; integer?: boolean }[] = [
-  { key: "orificeTopBottomWidth", label: "Orifice Top/Bottom Width", unit: "mm" },
-  { key: "orificeHeight", label: "Orifice Height", unit: "mm" },
-  { key: "orificeMiddleWidth", label: "Orifice Middle Width", unit: "mm" },
   { key: "soapsPerBar", label: "Soaps per Bar", unit: "nos", integer: true },
-  { key: "soapWeight", label: "Soap Weight", unit: "g" },
-  { key: "barWeight", label: "Bar Weight", unit: "g" },
+  { key: "soapWeightG", label: "Soap Weight", unit: "g" },
+  { key: "longBarWeightG", label: "Long Bar Weight", unit: "g" },
 ];
 
 function skuToForm(sku: Sku): FormState {
@@ -53,12 +48,9 @@ function skuToForm(sku: Sku): FormState {
     skuCode: sku.skuCode,
     skuName: sku.skuName,
     productColor: sku.productColor ?? "",
-    orificeTopBottomWidth: sku.orificeTopBottomWidth?.toString() ?? "",
-    orificeHeight: sku.orificeHeight?.toString() ?? "",
-    orificeMiddleWidth: sku.orificeMiddleWidth?.toString() ?? "",
     soapsPerBar: sku.soapsPerBar?.toString() ?? "",
-    soapWeight: sku.soapWeight?.toString() ?? "",
-    barWeight: sku.barWeight?.toString() ?? "",
+    soapWeightG: sku.soapWeightG?.toString() ?? "",
+    longBarWeightG: sku.longBarWeightG?.toString() ?? "",
   };
 }
 
@@ -70,22 +62,23 @@ function numOrNull(raw: string): number | null {
 }
 
 export function SkuConfigModal({ onClose }: { onClose: () => void }) {
-  const [skus, setSkus] = useState<Sku[]>([]);
+  const [config, setConfig] = useState<SkuConfig>({ activeSku: null, skus: [] });
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
-  async function loadSkus() {
+  async function loadConfig() {
     try {
-      const res = await apiFetch("/api/sku");
-      if (res.ok) setSkus((await res.json()) as Sku[]);
+      const res = await apiFetch("/api/sku-config");
+      if (res.ok) setConfig((await res.json()) as SkuConfig);
     } catch {
       // backend unreachable; list stays empty
     }
   }
 
   useEffect(() => {
-    loadSkus();
+    loadConfig();
   }, []);
 
   useEffect(() => {
@@ -101,27 +94,54 @@ export function SkuConfigModal({ onClose }: { onClose: () => void }) {
     setNotice(null);
   }
 
+  async function setActive(skuCode: string) {
+    setSwitching(true);
+    setNotice(null);
+    try {
+      const res = await apiFetch("/api/sku-config/active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skuCode }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        setNotice({ kind: "err", text: body?.error ?? `Switch failed (HTTP ${res.status}).` });
+        return;
+      }
+      setNotice({ kind: "ok", text: `Active SKU set to "${skuCode}".` });
+      await loadConfig();
+    } catch {
+      setNotice({ kind: "err", text: "Could not reach the server. Try again." });
+    } finally {
+      setSwitching(false);
+    }
+  }
+
   async function save() {
     if (!form.skuCode.trim() || !form.skuName.trim()) {
       setNotice({ kind: "err", text: "SKU code and SKU name are required." });
       return;
     }
+    const soapsPerBar = numOrNull(form.soapsPerBar);
+    const soapWeightG = numOrNull(form.soapWeightG);
+    const longBarWeightG = numOrNull(form.longBarWeightG);
+    if (soapsPerBar === null || soapWeightG === null || longBarWeightG === null) {
+      setNotice({ kind: "err", text: "Soaps per bar, soap weight, and long bar weight are required." });
+      return;
+    }
     setSaving(true);
     setNotice(null);
     try {
-      const res = await apiFetch("/api/sku", {
+      const res = await apiFetch("/api/sku-config/sku", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           skuCode: form.skuCode.trim(),
           skuName: form.skuName.trim(),
           productColor: form.productColor.trim() || null,
-          orificeTopBottomWidth: numOrNull(form.orificeTopBottomWidth),
-          orificeHeight: numOrNull(form.orificeHeight),
-          orificeMiddleWidth: numOrNull(form.orificeMiddleWidth),
-          soapsPerBar: numOrNull(form.soapsPerBar),
-          soapWeight: numOrNull(form.soapWeight),
-          barWeight: numOrNull(form.barWeight),
+          soapsPerBar,
+          soapWeightG,
+          longBarWeightG,
         }),
       });
       if (!res.ok) {
@@ -130,13 +150,15 @@ export function SkuConfigModal({ onClose }: { onClose: () => void }) {
         return;
       }
       setNotice({ kind: "ok", text: `SKU "${form.skuCode.trim()}" saved.` });
-      await loadSkus();
+      await loadConfig();
     } catch {
       setNotice({ kind: "err", text: "Could not reach the server. Try again." });
     } finally {
       setSaving(false);
     }
   }
+
+  const activeSku = config.skus.find((s) => s.skuCode === config.activeSku) ?? null;
 
   return createPortal(
     <div className="hmi-modal-overlay" onClick={onClose}>
@@ -150,36 +172,62 @@ export function SkuConfigModal({ onClose }: { onClose: () => void }) {
         <header className="hmi-modal-head">
           <div>
             <h2 className="hmi-panel-title">SKU Configurator</h2>
-            <div className="hmi-panel-sub">Product · Orifice · Weights</div>
+            <div className="hmi-panel-sub">Product · Weights</div>
           </div>
           <button type="button" className="hmi-modal-close" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </header>
 
-        {skus.length > 0 ? (
+        <div className="hmi-form-grid">
           <label className="hmi-field hmi-field-wide">
-            <span className="hmi-field-label">Load existing SKU</span>
+            <span className="hmi-field-label">Active SKU</span>
             <select
               className="hmi-input"
-              value=""
+              value={config.activeSku ?? ""}
+              disabled={switching}
               onChange={(e) => {
-                const sku = skus.find((s) => s.skuCode === e.target.value);
-                if (sku) {
-                  setForm(skuToForm(sku));
-                  setNotice(null);
-                }
+                if (e.target.value) setActive(e.target.value);
               }}
             >
-              <option value="">— New SKU —</option>
-              {skus.map((s) => (
+              {!config.activeSku ? <option value="">— none —</option> : null}
+              {config.skus.map((s) => (
                 <option key={s.skuCode} value={s.skuCode}>
                   {s.skuCode} · {s.skuName}
+                  {s.productColor ? ` · ${s.productColor}` : ""}
                 </option>
               ))}
             </select>
           </label>
-        ) : null}
+          {activeSku ? (
+            <div className="hmi-field hmi-field-wide hmi-field-readout">
+              Currently running: <strong>{activeSku.skuCode}</strong> — {activeSku.skuName}
+              {activeSku.productColor ? ` (${activeSku.productColor})` : ""}
+            </div>
+          ) : null}
+        </div>
+
+        <label className="hmi-field hmi-field-wide">
+          <span className="hmi-field-label">Load / edit existing SKU</span>
+          <select
+            className="hmi-input"
+            value=""
+            onChange={(e) => {
+              const sku = config.skus.find((s) => s.skuCode === e.target.value);
+              if (sku) {
+                setForm(skuToForm(sku));
+                setNotice(null);
+              }
+            }}
+          >
+            <option value="">— New SKU —</option>
+            {config.skus.map((s) => (
+              <option key={s.skuCode} value={s.skuCode}>
+                {s.skuCode} · {s.skuName}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <div className="hmi-form-grid">
           <label className="hmi-field">

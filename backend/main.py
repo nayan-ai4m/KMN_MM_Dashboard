@@ -1,3 +1,5 @@
+import json
+import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +23,12 @@ IST = ZoneInfo("Asia/Kolkata")
 MIXER_MODEL_PATH = Path(__file__).resolve().parent / "models" / "mixer_hardness_model.pkl"
 _mixer_model_cache = {"model": None, "mtime": None}
 
+BACKEND_CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
+with open(BACKEND_CONFIG_PATH) as f:
+    _backend_cfg = json.load(f)
+RECYCLE_CONFIG_PATH = Path(_backend_cfg["recycle_config_path"])
+LONG_TO_SMALL_BAR_RATIO = float(_backend_cfg["long_to_small_bar_ratio"])
+
 
 def _load_mixer_model():
     if not MIXER_MODEL_PATH.exists():
@@ -32,26 +40,9 @@ def _load_mixer_model():
     return _mixer_model_cache["model"]
 
 
-SKU_TABLE_DDL = """
-CREATE TABLE IF NOT EXISTS sku_config (
-    sku_code TEXT PRIMARY KEY,
-    sku_name TEXT NOT NULL,
-    product_color TEXT,
-    orifice_top_bottom_width NUMERIC,
-    orifice_height NUMERIC,
-    orifice_middle_width NUMERIC,
-    soaps_per_bar INTEGER,
-    soap_weight NUMERIC,
-    bar_weight NUMERIC,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-)
-"""
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await postgres.get_pool()
-    await postgres.execute(SKU_TABLE_DDL)
     yield
     await postgres.close_pool()
 
@@ -326,40 +317,72 @@ class SkuPayload(BaseModel):
     skuCode: str
     skuName: str
     productColor: str | None = None
-    orificeTopBottomWidth: float | None = None
-    orificeHeight: float | None = None
-    orificeMiddleWidth: float | None = None
-    soapsPerBar: int | None = None
-    soapWeight: float | None = None
-    barWeight: float | None = None
+    soapsPerBar: int
+    soapWeightG: float
+    longBarWeightG: float
 
 
-def _sku_row_to_json(r) -> dict:
-    def num(value):
-        return float(value) if value is not None else None
+class ActiveSkuPayload(BaseModel):
+    skuCode: str
 
+
+def _read_recycle_config() -> dict:
+    with open(RECYCLE_CONFIG_PATH) as f:
+        return json.load(f)
+
+
+def _write_recycle_config(cfg: dict) -> None:
+    fd, tmp_path = tempfile.mkstemp(dir=RECYCLE_CONFIG_PATH.parent, suffix=".tmp")
+    try:
+        with open(fd, "w") as f:
+            json.dump(cfg, f, indent=2)
+        Path(tmp_path).replace(RECYCLE_CONFIG_PATH)
+    except BaseException:
+        Path(tmp_path).unlink(missing_ok=True)
+        raise
+
+
+def _sku_entry_to_json(sku_code: str, entry: dict) -> dict:
+    bar_kg = entry.get("bar_kg")
+    soap_kg = entry.get("soap_kg")
     return {
-        "skuCode": r["sku_code"],
-        "skuName": r["sku_name"],
-        "productColor": r["product_color"],
-        "orificeTopBottomWidth": num(r["orifice_top_bottom_width"]),
-        "orificeHeight": num(r["orifice_height"]),
-        "orificeMiddleWidth": num(r["orifice_middle_width"]),
-        "soapsPerBar": int(r["soaps_per_bar"]) if r["soaps_per_bar"] is not None else None,
-        "soapWeight": num(r["soap_weight"]),
-        "barWeight": num(r["bar_weight"]),
-        "updatedAt": r["updated_at"].astimezone(IST).isoformat() if r["updated_at"] is not None else None,
+        "skuCode": sku_code,
+        "skuName": entry.get("sku_name"),
+        "productColor": entry.get("product_color"),
+        "soapsPerBar": entry.get("soaps_per_bar"),
+        # Recovered from stored kg values so the edit form can be prefilled.
+        "soapWeightG": soap_kg * 1000 if soap_kg is not None else None,
+        "longBarWeightG": (bar_kg * 1000 / LONG_TO_SMALL_BAR_RATIO) if bar_kg is not None else None,
+        "barKg": bar_kg,
+        "soapKg": soap_kg,
+        "fringeKg": entry.get("fringe_kg"),
     }
 
 
-@app.get("/api/sku")
-async def sku_list():
-    rows = await postgres.fetch("SELECT * FROM sku_config ORDER BY sku_code")
-    return respond([_sku_row_to_json(r) for r in rows])
+@app.get("/api/sku-config")
+async def sku_config_get():
+    cfg = _read_recycle_config()
+    return respond(
+        {
+            "activeSku": cfg.get("active_sku"),
+            "skus": [_sku_entry_to_json(code, entry) for code, entry in cfg.get("skus", {}).items()],
+        }
+    )
 
 
-@app.post("/api/sku")
-async def sku_save(payload: SkuPayload):
+@app.post("/api/sku-config/active")
+async def sku_config_set_active(payload: ActiveSkuPayload):
+    code = payload.skuCode.strip()
+    cfg = _read_recycle_config()
+    if code not in cfg.get("skus", {}):
+        return respond_err(f"SKU '{code}' not found", status=404)
+    cfg["active_sku"] = code
+    _write_recycle_config(cfg)
+    return respond({"activeSku": code})
+
+
+@app.post("/api/sku-config/sku")
+async def sku_config_save(payload: SkuPayload):
     code = payload.skuCode.strip()
     name = payload.skuName.strip()
     if not code:
@@ -367,38 +390,18 @@ async def sku_save(payload: SkuPayload):
     if not name:
         return respond_err("SKU name is required")
 
-    row = await postgres.fetchrow(
-        "INSERT INTO sku_config (sku_code, sku_name, product_color, "
-        "orifice_top_bottom_width, orifice_height, orifice_middle_width, "
-        "soaps_per_bar, soap_weight, bar_weight, updated_at) "
-        "VALUES ($1, $2, $3, $4::float8, $5::float8, $6::float8, $7, $8::float8, $9::float8, now()) "
-        "ON CONFLICT (sku_code) DO UPDATE SET "
-        "sku_name = EXCLUDED.sku_name, "
-        "product_color = EXCLUDED.product_color, "
-        "orifice_top_bottom_width = EXCLUDED.orifice_top_bottom_width, "
-        "orifice_height = EXCLUDED.orifice_height, "
-        "orifice_middle_width = EXCLUDED.orifice_middle_width, "
-        "soaps_per_bar = EXCLUDED.soaps_per_bar, "
-        "soap_weight = EXCLUDED.soap_weight, "
-        "bar_weight = EXCLUDED.bar_weight, "
-        "updated_at = now() "
-        "RETURNING *",
-        code,
-        name,
-        payload.productColor.strip() if payload.productColor else None,
-        payload.orificeTopBottomWidth,
-        payload.orificeHeight,
-        payload.orificeMiddleWidth,
-        payload.soapsPerBar,
-        payload.soapWeight,
-        payload.barWeight,
-    )
-    return respond(_sku_row_to_json(row))
+    soap_kg = payload.soapWeightG / 1000
+    bar_kg = payload.longBarWeightG * LONG_TO_SMALL_BAR_RATIO / 1000
+    fringe_kg = (payload.longBarWeightG - payload.soapsPerBar * payload.soapWeightG) / 1000
 
-
-@app.delete("/api/sku/{sku_code}")
-async def sku_delete(sku_code: str):
-    result = await postgres.execute("DELETE FROM sku_config WHERE sku_code = $1", sku_code)
-    if result == "DELETE 0":
-        return respond_err("SKU not found", status=404)
-    return respond({"deleted": sku_code})
+    cfg = _read_recycle_config()
+    cfg.setdefault("skus", {})[code] = {
+        "sku_name": name,
+        "product_color": payload.productColor.strip() if payload.productColor else None,
+        "bar_kg": bar_kg,
+        "soap_kg": soap_kg,
+        "soaps_per_bar": payload.soapsPerBar,
+        "fringe_kg": fringe_kg,
+    }
+    _write_recycle_config(cfg)
+    return respond(_sku_entry_to_json(code, cfg["skus"][code]))

@@ -30,12 +30,12 @@ export function BsmSection() {
       area="hmi-area-bsm"
       title="BSM"
       sub="Binnachi · Lane status"
-      right={
-        <StatusPill
-          tone={overall?.tone ?? "warn"}
-          label={lanes.length === 0 ? "—" : (overall?.label ?? `${running}/${lanes.length} Running`)}
-        />
-      }
+      // right={
+      //   <StatusPill
+      //     tone={overall?.tone ?? "warn"}
+      //     label={lanes.length === 0 ? "—" : (overall?.label ?? `${running}/${lanes.length} Running`)}
+      //   />
+      // }
     >
       <div className="hmi-lanes">
         {lanes.map((lane) => (
