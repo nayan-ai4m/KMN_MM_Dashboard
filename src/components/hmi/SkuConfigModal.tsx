@@ -199,12 +199,12 @@ export function SkuConfigModal({ onClose }: { onClose: () => void }) {
               ))}
             </select>
           </label>
-          {activeSku ? (
+          {/* {activeSku ? (
             <div className="hmi-field hmi-field-wide hmi-field-readout">
               Currently running: <strong>{activeSku.skuCode}</strong> — {activeSku.skuName}
               {activeSku.productColor ? ` (${activeSku.productColor})` : ""}
             </div>
-          ) : null}
+          ) : null} */}
         </div>
 
         <label className="hmi-field hmi-field-wide">

@@ -54,7 +54,7 @@ export function HmiHeader() {
         <div className="hmi-meta">
           <span className="hmi-meta-label">SKU</span>
           <span className="hmi-meta-value">
-            {activeSku ? `${activeSku.skuCode} · ${activeSku.skuName}${activeSku.productColor ? ` · ${activeSku.productColor}` : ""}` : "—"}
+            {activeSku ? `${activeSku.skuCode} : ""}` : "—"}
           </span>
         </div>
         <button type="button" className="hmi-btn" onClick={() => setSkuModalOpen(true)}>
