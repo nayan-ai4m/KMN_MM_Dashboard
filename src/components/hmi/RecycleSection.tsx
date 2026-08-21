@@ -7,19 +7,17 @@ type RecycleLatest = {
   fringeMass: number | null;
   barMass: number | null;
   soapMass: number | null;
-  freshMass: number | null;
 };
 
 const SLICES = [
   { key: "fringeMass", name: "Fringe", color: "var(--hmi-hard)" },
   { key: "soapMass", name: "Soap", color: "var(--hmi-c3)" },
   { key: "barMass", name: "Bar", color: "var(--hmi-c1)" },
-  { key: "freshMass", name: "New Material", color: "var(--hmi-c2)" },
 ] as const;
 
-// Recycle + fresh-material composition is fetched once a minute at a fixed
-// wall-clock offset (:15s) rather than a rolling interval from mount - by
-// then the previous full clock minute's noodler/mixer data is already in.
+// Recycle composition is fetched once a minute at a fixed wall-clock offset
+// (:15s) rather than a rolling interval from mount - by then the previous
+// full clock minute's data is already in.
 const COMPOSITION_POLL_SECONDS = [15] as const;
 
 const RAD = Math.PI / 180;
@@ -65,7 +63,6 @@ export function RecycleSection() {
     fringeMass: null,
     barMass: null,
     soapMass: null,
-    freshMass: null,
   });
 
   const data = SLICES.map((s) => ({ name: s.name, value: latest[s.key] ?? 0, color: s.color })).filter(

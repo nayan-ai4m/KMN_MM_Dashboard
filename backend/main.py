@@ -1,7 +1,7 @@
 import json
 import tempfile
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -12,7 +12,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-import fresh_material
 import mixer_classify as mc
 import postgres
 from helpers import int_param, respond, respond_err
@@ -238,16 +237,12 @@ async def bsm_lanes():
     return respond(lanes)
 
 
-RECYCLE_FRESH_WINDOW_MIN = 1
-
-
 @app.get("/api/recycle/latest")
 async def recycle_latest():
     row = await postgres.fetchrow(
         "SELECT timestamp, fringe_mass, recycle_bar_mass, recycle_soap_mass "
         "FROM recycle_material ORDER BY timestamp DESC LIMIT 1"
     )
-    fresh = await fresh_material.fresh_mass_kg(RECYCLE_FRESH_WINDOW_MIN)
 
     if row is None:
         return respond(
@@ -256,7 +251,6 @@ async def recycle_latest():
                 "fringeMass": None,
                 "barMass": None,
                 "soapMass": None,
-                "freshMass": fresh["kg"],
             }
         )
 
@@ -269,9 +263,42 @@ async def recycle_latest():
             "fringeMass": num(row["fringe_mass"]),
             "barMass": num(row["recycle_bar_mass"]),
             "soapMass": num(row["recycle_soap_mass"]),
-            "freshMass": fresh["kg"],
         }
     )
+
+
+@app.get("/api/fresh-material/recent")
+async def fresh_material_recent(request: Request):
+    limit = int_param(request, "limit", default=10)
+    rows = await postgres.fetch(
+        "SELECT timestamp, dur_ran, kg_added, fresh_material_hardness "
+        "FROM fresh_material_composition ORDER BY timestamp DESC LIMIT $1",
+        limit,
+    )
+
+    def num(value):
+        return float(value) if value is not None else None
+
+    def fmt(ts):
+        return ts.astimezone(IST).strftime("%H:%M:%S") if ts is not None else None
+
+    points = []
+    for r in reversed(rows):
+        if r["timestamp"] is None:
+            continue
+        dur_ran = num(r["dur_ran"])
+        # timestamp marks when the noodler run ENDED; start = end - dur_ran.
+        start_ts = r["timestamp"] - timedelta(seconds=dur_ran) if dur_ran is not None else None
+        points.append(
+            {
+                "startTime": fmt(start_ts),
+                "endTime": fmt(r["timestamp"]),
+                "durRan": dur_ran,
+                "kgAdded": num(r["kg_added"]),
+                "hardness": num(r["fresh_material_hardness"]),
+            }
+        )
+    return respond(points)
 
 
 @app.get("/api/final-plodder/recent")

@@ -66,7 +66,7 @@
   grid-template-areas:
     "head head head"
     "mixer transport recycle"
-    "pre final bsm";
+    "pre final fresh";
   gap: var(--hmi-gap);
   padding: var(--hmi-gap);
 }
@@ -95,8 +95,8 @@
   grid-area: recycle;
 }
 
-.hmi-area-bsm {
-  grid-area: bsm;
+.hmi-area-fresh {
+  grid-area: fresh;
 }
 
 /* ---------- Glass panel ---------- */
@@ -171,7 +171,7 @@
 /* ---------- Header bar ---------- */
 .hmi-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: var(--hmi-gap);
   padding: calc(var(--hmi-pad) * 0.7) var(--hmi-pad);
@@ -226,6 +226,7 @@
   align-items: center;
   gap: 15px;
   flex: none;
+  justify-self: end;
 }
 
 .hmi-meta {
@@ -449,65 +450,46 @@
   gap: calc(var(--hmi-gap) * 0.75);
 }
 
-/* ---------- BSM lanes ---------- */
-.hmi-lanes {
-  flex: 1;
-  min-height: 0;
-  gap: 5px;
-  display: flex;
-  flex-direction: column;
-}
-
-.hmi-lane {
-  flex: 1;
-  min-height: 0;
+/* ---------- Header lane status pills ---------- */
+.hmi-lane-pills {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 clamp(10px, 0.9vw, 16px);
-  border-radius: 12px;
-  border: 1px solid color-mix(in oklab, currentColor 45%, transparent);
-  background: linear-gradient(100deg,
-      color-mix(in oklab, currentColor 18%, transparent),
-      color-mix(in oklab, currentColor 6%, transparent));
+  justify-self: center;
+  gap: 8px;
 }
 
-.hmi-lane>div:not(.hmi-lane-state) {
-  flex: 1 1 auto;
+.hmi-lane-pills .hmi-pill {
+  padding: 6px 10px;
+}
+
+/* ---------- Fresh material trend rows ---------- */
+.hmi-trend-row {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: clamp(8px, 0.9vw, 16px);
+  padding: 0 clamp(10px, 0.9vw, 16px);
+  border-radius: 12px;
+  background: var(--hmi-tile);
+}
+
+.hmi-trend-value {
   min-width: 0;
 }
 
-.hmi-lane.is-run {
-  color: var(--hmi-run);
+.hmi-trend-range {
+  font-size: clamp(9px, 0.7vw, 11px);
+  color: var(--hmi-text-dim);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+  white-space: nowrap;
 }
 
-.hmi-lane.is-fault {
-  color: var(--hmi-fault);
-}
-
-.hmi-lane.is-warn {
-  color: var(--hmi-warn);
-}
-
-.hmi-lane-name {
-  /* font-family: var(--hmi-mono); */
-  font-weight: 700;
-  font-size: clamp(11px, 0.95vw, 16px);
-  color: var(--hmi-text);
-}
-
-.hmi-lane-state {
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  font-size: clamp(11px, 1.05vw, 18px);
-  text-align: right;
-}
-
-.hmi-lane-count {
-  /* font-family: var(--hmi-mono); */
-  font-size: 15px;
-  color: var(--hmi-text);
-  text-align: right;
+.hmi-trend-chart {
+  min-width: 0;
+  height: 100%;
 }
 
 /* ---------- Recycle donut ---------- */
@@ -808,7 +790,7 @@ select.hmi-input option {
       "head head"
       "mixer transport"
       "recycle pre"
-      "final bsm";
+      "final fresh";
   }
 
   .hmi-split {
@@ -827,7 +809,7 @@ select.hmi-input option {
       "recycle"
       "pre"
       "final"
-      "bsm";
+      "fresh";
   }
 
   .hmi-split {
