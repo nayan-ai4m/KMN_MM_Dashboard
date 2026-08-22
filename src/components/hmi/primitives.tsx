@@ -102,6 +102,41 @@ export function HmiTooltip({
   );
 }
 
+export function TrendArrow({ direction, color }: { direction: "up" | "down"; color: string }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      style={{
+        display: "inline-block",
+        verticalAlign: "middle",
+        marginLeft: 6,
+        transform: direction === "up" ? "scaleY(-1)" : undefined,
+      }}
+    >
+      <path
+        d="M12 4 V18 M6 12 L12 18 L18 12"
+        stroke={color}
+        strokeWidth={3.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function hardnessColor(value: number): string {
+  if (value <= 0.25) return "var(--hmi-run)";
+  if (value <= 0.5) return "var(--hmi-warn)";
+  return "var(--hmi-fault)";
+}
+
+export function hardnessLabel(value: number): "SOFT" | "HARD" {
+  return value > 0.5 ? "HARD" : "SOFT";
+}
+
 export const AXIS = {
   stroke: "rgba(140,170,210,0.35)",
   tick: { fill: "#61708a", fontSize: 10, fontFamily: "var(--hmi-mono)" },

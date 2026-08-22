@@ -10,9 +10,9 @@ type RecycleLatest = {
 };
 
 const SLICES = [
-  { key: "fringeMass", name: "Fringe", color: "var(--hmi-hard)" },
-  { key: "soapMass", name: "Soap", color: "var(--hmi-c3)" },
-  { key: "barMass", name: "Bar", color: "var(--hmi-c1)" },
+  { key: "fringeMass", name: "Fringe", color: "var(--hmi-c4)" },
+  { key: "soapMass", name: "Soap", color: "var(--hmi-fault)" },
+  { key: "barMass", name: "Bar", color: "var(--hmi-hard)" },
 ] as const;
 
 // Recycle composition is fetched once a minute at a fixed wall-clock offset

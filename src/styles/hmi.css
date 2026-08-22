@@ -473,6 +473,7 @@
   padding: 0 clamp(10px, 0.9vw, 16px);
   border-radius: 12px;
   background: var(--hmi-tile);
+  border: 1px solid var(--hmi-line);
 }
 
 .hmi-trend-value {

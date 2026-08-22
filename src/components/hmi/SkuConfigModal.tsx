@@ -6,6 +6,10 @@ export type Sku = {
   skuCode: string;
   skuName: string;
   productColor: string | null;
+  orificeTopWidthMm: number | null;
+  orificeMiddleWidthMm: number | null;
+  orificeBottomWidthMm: number | null;
+  orificeHeightMm: number | null;
   soapsPerBar: number | null;
   soapWeightG: number | null;
   longBarWeightG: number | null;
@@ -23,6 +27,10 @@ type FormState = {
   skuCode: string;
   skuName: string;
   productColor: string;
+  orificeTopWidthMm: string;
+  orificeMiddleWidthMm: string;
+  orificeBottomWidthMm: string;
+  orificeHeightMm: string;
   soapsPerBar: string;
   soapWeightG: string;
   longBarWeightG: string;
@@ -32,12 +40,20 @@ const EMPTY_FORM: FormState = {
   skuCode: "",
   skuName: "",
   productColor: "",
+  orificeTopWidthMm: "",
+  orificeMiddleWidthMm: "",
+  orificeBottomWidthMm: "",
+  orificeHeightMm: "",
   soapsPerBar: "",
   soapWeightG: "",
   longBarWeightG: "",
 };
 
 const NUMBER_FIELDS: { key: keyof FormState; label: string; unit: string; integer?: boolean }[] = [
+  { key: "orificeTopWidthMm", label: "Orifice Top Width", unit: "mm" },
+  { key: "orificeMiddleWidthMm", label: "Orifice Middle Width", unit: "mm" },
+  { key: "orificeBottomWidthMm", label: "Orifice Bottom Width", unit: "mm" },
+  { key: "orificeHeightMm", label: "Orifice Height", unit: "mm" },
   { key: "soapsPerBar", label: "Soaps per Bar", unit: "nos", integer: true },
   { key: "soapWeightG", label: "Soap Weight", unit: "g" },
   { key: "longBarWeightG", label: "Long Bar Weight", unit: "g" },
@@ -48,6 +64,10 @@ function skuToForm(sku: Sku): FormState {
     skuCode: sku.skuCode,
     skuName: sku.skuName,
     productColor: sku.productColor ?? "",
+    orificeTopWidthMm: sku.orificeTopWidthMm?.toString() ?? "",
+    orificeMiddleWidthMm: sku.orificeMiddleWidthMm?.toString() ?? "",
+    orificeBottomWidthMm: sku.orificeBottomWidthMm?.toString() ?? "",
+    orificeHeightMm: sku.orificeHeightMm?.toString() ?? "",
     soapsPerBar: sku.soapsPerBar?.toString() ?? "",
     soapWeightG: sku.soapWeightG?.toString() ?? "",
     longBarWeightG: sku.longBarWeightG?.toString() ?? "",
@@ -122,11 +142,26 @@ export function SkuConfigModal({ onClose }: { onClose: () => void }) {
       setNotice({ kind: "err", text: "SKU code and SKU name are required." });
       return;
     }
+    const orificeTopWidthMm = numOrNull(form.orificeTopWidthMm);
+    const orificeMiddleWidthMm = numOrNull(form.orificeMiddleWidthMm);
+    const orificeBottomWidthMm = numOrNull(form.orificeBottomWidthMm);
+    const orificeHeightMm = numOrNull(form.orificeHeightMm);
     const soapsPerBar = numOrNull(form.soapsPerBar);
     const soapWeightG = numOrNull(form.soapWeightG);
     const longBarWeightG = numOrNull(form.longBarWeightG);
-    if (soapsPerBar === null || soapWeightG === null || longBarWeightG === null) {
-      setNotice({ kind: "err", text: "Soaps per bar, soap weight, and long bar weight are required." });
+    if (
+      orificeTopWidthMm === null ||
+      orificeMiddleWidthMm === null ||
+      orificeBottomWidthMm === null ||
+      orificeHeightMm === null ||
+      soapsPerBar === null ||
+      soapWeightG === null ||
+      longBarWeightG === null
+    ) {
+      setNotice({
+        kind: "err",
+        text: "Orifice dimensions, soaps per bar, soap weight, and long bar weight are required.",
+      });
       return;
     }
     setSaving(true);
@@ -139,6 +174,10 @@ export function SkuConfigModal({ onClose }: { onClose: () => void }) {
           skuCode: form.skuCode.trim(),
           skuName: form.skuName.trim(),
           productColor: form.productColor.trim() || null,
+          orificeTopWidthMm,
+          orificeMiddleWidthMm,
+          orificeBottomWidthMm,
+          orificeHeightMm,
           soapsPerBar,
           soapWeightG,
           longBarWeightG,

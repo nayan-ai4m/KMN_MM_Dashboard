@@ -1,5 +1,4 @@
 import json
-import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -25,7 +24,6 @@ _mixer_model_cache = {"model": None, "mtime": None}
 BACKEND_CONFIG_PATH = Path(__file__).resolve().parent / "config.json"
 with open(BACKEND_CONFIG_PATH) as f:
     _backend_cfg = json.load(f)
-RECYCLE_CONFIG_PATH = Path(_backend_cfg["recycle_config_path"])
 LONG_TO_SMALL_BAR_RATIO = float(_backend_cfg["long_to_small_bar_ratio"])
 
 
@@ -106,14 +104,36 @@ async def transport_recent(request: Request):
     return respond(points)
 
 
+@app.get("/api/transport/status")
+async def transport_status():
+    noodler = await postgres.fetchrow("SELECT current FROM noodler ORDER BY timestamp DESC LIMIT 1")
+    conveyor = await postgres.fetchrow(
+        "SELECT output_current FROM noodler_to_mill_conveyor_data ORDER BY timestamp DESC LIMIT 1"
+    )
+    trm = await postgres.fetchrow("SELECT current FROM mill ORDER BY timestamp DESC LIMIT 1")
+
+    noodler_current = float(noodler["current"]) if noodler and noodler["current"] is not None else 0
+    conveyor_current = float(conveyor["output_current"]) if conveyor and conveyor["output_current"] is not None else 0
+    trm_current = float(trm["current"]) if trm and trm["current"] is not None else 0
+
+    running = noodler_current != 0 or conveyor_current != 0 or trm_current != 0
+    return respond({"running": running})
+
+
 @app.get("/api/mixer/status")
 async def mixer_status():
     latest = await postgres.fetchrow(
         "SELECT batch_count_mixer_2, drive1_current, drive2_current "
         "FROM mixer ORDER BY timestamp DESC LIMIT 1"
     )
+    mix_event = await postgres.fetchrow(
+        "SELECT timestamp, batch_num, batch_score FROM mixer_events WHERE event = 'MIX' ORDER BY timestamp DESC LIMIT 1"
+    )
+
     if latest is None:
-        return respond({"batchCount": None, "running": False})
+        return respond(
+            {"batchCount": None, "running": False, "mixBatchNum": None, "mixHardness": None, "mixTime": None}
+        )
 
     c1 = float(latest["drive1_current"] or 0)
     c2 = float(latest["drive2_current"] or 0)
@@ -124,6 +144,9 @@ async def mixer_status():
         {
             "batchCount": int(batch_count) if batch_count is not None else None,
             "running": running,
+            "mixBatchNum": mix_event["batch_num"] if mix_event else None,
+            "mixHardness": float(mix_event["batch_score"]) if mix_event and mix_event["batch_score"] is not None else None,
+            "mixTime": mix_event["timestamp"].astimezone(IST).strftime("%H:%M:%S") if mix_event and mix_event["timestamp"] is not None else None,
         }
     )
 
@@ -182,6 +205,47 @@ async def mixer_batch_type():
         "hardness": scored["hardness"],
         "batchEndedAt": last["end"].isoformat(),
     })
+
+
+@app.get("/api/mixer/drops/recent")
+async def mixer_drops_recent(request: Request):
+    limit = int_param(request, "limit", default=10)
+    rows = await postgres.fetch(
+        "SELECT d.timestamp, d.dur, d.kgs_dropped, d.batch_num, d.batch_score, m.timestamp AS mix_timestamp "
+        "FROM mixer_events d "
+        "LEFT JOIN LATERAL ("
+        "  SELECT timestamp FROM mixer_events "
+        "  WHERE event = 'MIX' AND batch_num = d.batch_num AND timestamp <= d.timestamp "
+        "  ORDER BY timestamp DESC LIMIT 1"
+        ") m ON true "
+        "WHERE d.event = 'DROP' "
+        "ORDER BY d.timestamp DESC LIMIT $1",
+        limit,
+    )
+
+    def num(value):
+        return float(value) if value is not None else None
+
+    points = []
+    for r in reversed(rows):
+        if r["timestamp"] is None:
+            continue
+        dur = num(r["dur"])
+        age_seconds = None
+        if dur is not None and r["mix_timestamp"] is not None:
+            drop_end = r["timestamp"] + timedelta(seconds=dur)
+            age_seconds = (drop_end - r["mix_timestamp"]).total_seconds()
+        points.append(
+            {
+                "time": r["timestamp"].astimezone(IST).strftime("%H:%M:%S"),
+                "batchNum": r["batch_num"],
+                "hardness": num(r["batch_score"]),
+                "kgsDropped": num(r["kgs_dropped"]),
+                "dur": dur,
+                "ageSeconds": age_seconds,
+            }
+        )
+    return respond(points)
 
 
 @app.get("/api/pre-plodder/recent")
@@ -271,7 +335,7 @@ async def recycle_latest():
 async def fresh_material_recent(request: Request):
     limit = int_param(request, "limit", default=10)
     rows = await postgres.fetch(
-        "SELECT timestamp, dur_ran, kg_added, fresh_material_hardness "
+        "SELECT timestamp, dur_ran, kg_added, fresh_material_hardness, batch_no "
         "FROM fresh_material_composition ORDER BY timestamp DESC LIMIT $1",
         limit,
     )
@@ -287,15 +351,21 @@ async def fresh_material_recent(request: Request):
         if r["timestamp"] is None:
             continue
         dur_ran = num(r["dur_ran"])
-        # timestamp marks when the noodler run ENDED; start = end - dur_ran.
-        start_ts = r["timestamp"] - timedelta(seconds=dur_ran) if dur_ran is not None else None
+        # timestamp marks when the noodler run STARTED; end = start + dur_ran.
+        end_ts = r["timestamp"] + timedelta(seconds=dur_ran) if dur_ran is not None else None
+        batch_no = json.loads(r["batch_no"]) if r["batch_no"] is not None else {}
+        batches = [
+            {"batch": batch, "percent": float(pct)}
+            for batch, pct in batch_no.items()
+        ]
         points.append(
             {
-                "startTime": fmt(start_ts),
-                "endTime": fmt(r["timestamp"]),
+                "startTime": fmt(r["timestamp"]),
+                "endTime": fmt(end_ts),
                 "durRan": dur_ran,
                 "kgAdded": num(r["kg_added"]),
                 "hardness": num(r["fresh_material_hardness"]),
+                "batches": batches,
             }
         )
     return respond(points)
@@ -344,6 +414,10 @@ class SkuPayload(BaseModel):
     skuCode: str
     skuName: str
     productColor: str | None = None
+    orificeTopWidthMm: float
+    orificeMiddleWidthMm: float
+    orificeBottomWidthMm: float
+    orificeHeightMm: float
     soapsPerBar: int
     soapWeightG: float
     longBarWeightG: float
@@ -353,58 +427,48 @@ class ActiveSkuPayload(BaseModel):
     skuCode: str
 
 
-def _read_recycle_config() -> dict:
-    with open(RECYCLE_CONFIG_PATH) as f:
-        return json.load(f)
-
-
-def _write_recycle_config(cfg: dict) -> None:
-    fd, tmp_path = tempfile.mkstemp(dir=RECYCLE_CONFIG_PATH.parent, suffix=".tmp")
-    try:
-        with open(fd, "w") as f:
-            json.dump(cfg, f, indent=2)
-        Path(tmp_path).replace(RECYCLE_CONFIG_PATH)
-    except BaseException:
-        Path(tmp_path).unlink(missing_ok=True)
-        raise
-
-
-def _sku_entry_to_json(sku_code: str, entry: dict) -> dict:
-    bar_kg = entry.get("bar_kg")
-    soap_kg = entry.get("soap_kg")
+def _sku_row_to_json(row) -> dict:
+    soap_weight_g = float(row["soap_weight_g"])
+    bar_weight_g = float(row["bar_weight_g"])
+    soaps_per_bar = row["soaps_per_bar"]
     return {
-        "skuCode": sku_code,
-        "skuName": entry.get("sku_name"),
-        "productColor": entry.get("product_color"),
-        "soapsPerBar": entry.get("soaps_per_bar"),
-        # Recovered from stored kg values so the edit form can be prefilled.
-        "soapWeightG": soap_kg * 1000 if soap_kg is not None else None,
-        "longBarWeightG": (bar_kg * 1000 / LONG_TO_SMALL_BAR_RATIO) if bar_kg is not None else None,
-        "barKg": bar_kg,
-        "soapKg": soap_kg,
-        "fringeKg": entry.get("fringe_kg"),
+        "skuCode": row["sku_code"],
+        "skuName": row["sku_name"],
+        "productColor": row["product_color"],
+        "orificeTopWidthMm": float(row["orifice_top_width_mm"]),
+        "orificeMiddleWidthMm": float(row["orifice_middle_width_mm"]),
+        "orificeBottomWidthMm": float(row["orifice_bottom_width_mm"]),
+        "orificeHeightMm": float(row["orifice_height_mm"]),
+        "soapsPerBar": soaps_per_bar,
+        "soapWeightG": soap_weight_g,
+        "longBarWeightG": bar_weight_g,
+        "barKg": bar_weight_g * LONG_TO_SMALL_BAR_RATIO / 1000,
+        "soapKg": soap_weight_g / 1000,
+        "fringeKg": (bar_weight_g - soaps_per_bar * soap_weight_g) / 1000,
     }
 
 
 @app.get("/api/sku-config")
 async def sku_config_get():
-    cfg = _read_recycle_config()
-    return respond(
-        {
-            "activeSku": cfg.get("active_sku"),
-            "skus": [_sku_entry_to_json(code, entry) for code, entry in cfg.get("skus", {}).items()],
-        }
-    )
+    rows = await postgres.fetch("SELECT * FROM sku_config ORDER BY sku_code")
+    active_sku = next((r["sku_code"] for r in rows if r["is_active"]), None)
+    return respond({"activeSku": active_sku, "skus": [_sku_row_to_json(r) for r in rows]})
 
 
 @app.post("/api/sku-config/active")
 async def sku_config_set_active(payload: ActiveSkuPayload):
     code = payload.skuCode.strip()
-    cfg = _read_recycle_config()
-    if code not in cfg.get("skus", {}):
+    existing = await postgres.fetchrow("SELECT 1 FROM sku_config WHERE sku_code = $1", code)
+    if existing is None:
         return respond_err(f"SKU '{code}' not found", status=404)
-    cfg["active_sku"] = code
-    _write_recycle_config(cfg)
+
+    pool = await postgres.get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("UPDATE sku_config SET is_active = FALSE WHERE is_active")
+            await conn.execute(
+                "UPDATE sku_config SET is_active = TRUE, updated_at = now() WHERE sku_code = $1", code
+            )
     return respond({"activeSku": code})
 
 
@@ -417,18 +481,35 @@ async def sku_config_save(payload: SkuPayload):
     if not name:
         return respond_err("SKU name is required")
 
-    soap_kg = payload.soapWeightG / 1000
-    bar_kg = payload.longBarWeightG * LONG_TO_SMALL_BAR_RATIO / 1000
-    fringe_kg = (payload.longBarWeightG - payload.soapsPerBar * payload.soapWeightG) / 1000
-
-    cfg = _read_recycle_config()
-    cfg.setdefault("skus", {})[code] = {
-        "sku_name": name,
-        "product_color": payload.productColor.strip() if payload.productColor else None,
-        "bar_kg": bar_kg,
-        "soap_kg": soap_kg,
-        "soaps_per_bar": payload.soapsPerBar,
-        "fringe_kg": fringe_kg,
-    }
-    _write_recycle_config(cfg)
-    return respond(_sku_entry_to_json(code, cfg["skus"][code]))
+    row = await postgres.fetchrow(
+        """
+        INSERT INTO sku_config (
+            sku_code, sku_name, product_color,
+            orifice_top_width_mm, orifice_middle_width_mm, orifice_bottom_width_mm, orifice_height_mm,
+            soaps_per_bar, soap_weight_g, bar_weight_g
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (sku_code) DO UPDATE SET
+            sku_name = EXCLUDED.sku_name,
+            product_color = EXCLUDED.product_color,
+            orifice_top_width_mm = EXCLUDED.orifice_top_width_mm,
+            orifice_middle_width_mm = EXCLUDED.orifice_middle_width_mm,
+            orifice_bottom_width_mm = EXCLUDED.orifice_bottom_width_mm,
+            orifice_height_mm = EXCLUDED.orifice_height_mm,
+            soaps_per_bar = EXCLUDED.soaps_per_bar,
+            soap_weight_g = EXCLUDED.soap_weight_g,
+            bar_weight_g = EXCLUDED.bar_weight_g,
+            updated_at = now()
+        RETURNING *
+        """,
+        code,
+        name,
+        payload.productColor.strip() if payload.productColor else None,
+        payload.orificeTopWidthMm,
+        payload.orificeMiddleWidthMm,
+        payload.orificeBottomWidthMm,
+        payload.orificeHeightMm,
+        payload.soapsPerBar,
+        payload.soapWeightG,
+        payload.longBarWeightG,
+    )
+    return respond(_sku_row_to_json(row))

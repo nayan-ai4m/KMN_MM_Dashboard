@@ -3,14 +3,23 @@ import { AXIS, HmiTooltip, Legend, Panel, StatusPill } from "./primitives";
 import type { Point } from "@/lib/hmi-mock";
 import { usePolledJson } from "@/lib/usePolledJson";
 
+type TransportStatus = { running: boolean };
+
 export function TransportSection() {
   const data = usePolledJson<Point[]>("/api/transport/recent?minutes=10", 10_000, []);
+  const status = usePolledJson<TransportStatus>("/api/transport/status", 10_000, { running: false });
 
   return (
     <Panel
       area="hmi-area-transport"
       title="First Floor Machines"
       sub="Noodler · Conveyor · Roll Mill"
+      right={
+        <StatusPill
+          tone={status.running ? "run" : "fault"}
+          label={status.running ? "RUNNING" : "STOPPED"}
+        />
+      }
     >
       <Legend
         items={[
